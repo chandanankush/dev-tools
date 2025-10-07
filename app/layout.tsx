@@ -7,14 +7,15 @@ const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-san
 
 const title = "Dev Toolkit";
 const description = "A curated collection of developer utilities built with Next.js 15.";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dev-tools.example.com";
 
 export const metadata: Metadata = {
   title: {
     default: title,
     template: `%s | ${title}`,
-  },
+  }, 
   description,
-  metadataBase: new URL("https://example.com"),
+  metadataBase: new URL(baseUrl),
   openGraph: {
     title,
     description,
