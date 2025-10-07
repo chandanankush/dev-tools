@@ -51,13 +51,23 @@ pipeline {
       defaultValue: '',
       description: 'Additional docker run flags (space-delimited)'
     )
+    string(
+      name: 'REMOTE_USERNAME',
+      defaultValue: '',
+      description: 'Remote SSH username (used only when credentials ID is blank)'
+    )
+    password(
+      name: 'REMOTE_PASSWORD',
+      defaultValue: '',
+      description: 'Remote SSH password (used only when credentials ID is blank)'
+    )
   }
 
   environment {
     DOCKER_BUILDKIT = '1'
     BUILDX_INSTANCE = 'multiarch'
     PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
-    REMOTE_CREDENTIALS_ID = 'remote-ssh'
+    REGISTRY_CREDENTIALS_ID = 'registry-creds'
   }
 
   stages {
@@ -135,7 +145,8 @@ pipeline {
           def envArgsRaw = params.REMOTE_ENV_VARS ?: ''
           def envArgs = envArgsRaw.replace('${SITE_URL}', params.SITE_URL ?: '')
           def runArgs = params.REMOTE_RUN_ARGS ?: ''
-          def credentialsId = env.REMOTE_CREDENTIALS_ID ?: 'remote-ssh'
+          def remoteUsernameParam = params.REMOTE_USERNAME?.trim()
+          def remotePasswordParam = params.REMOTE_PASSWORD
 
           if (!remoteHost) {
             error('REMOTE_HOST must be provided when DEPLOY_REMOTE is enabled')
@@ -145,6 +156,12 @@ pipeline {
           }
           if (!remotePortMapping) {
             error('REMOTE_PORT_MAPPING must be provided when DEPLOY_REMOTE is enabled')
+          }
+          if (!remoteUsernameParam) {
+            error('REMOTE_USERNAME must be provided')
+          }
+          if (!remotePasswordParam) {
+            error('REMOTE_PASSWORD must be provided')
           }
 
           def envArgsTrimmed = envArgs?.trim()
@@ -168,30 +185,37 @@ pipeline {
 
           def remoteRunCommand = runCommandParts.join(' ')
 
-          withCredentials([usernamePassword(credentialsId: credentialsId, usernameVariable: 'REMOTE_USER', passwordVariable: 'REMOTE_PASS')]) {
-            sh label: 'Deploy image to remote host', script: """
-              set -euo pipefail
-              export PATH="/usr/local/bin:/opt/homebrew/bin:\$PATH"
+          def executeDeploy = { String remoteUserValue, String remotePassValue ->
+            withEnv([
+              "REMOTE_USER=${remoteUserValue}",
+              "REMOTE_PASS=${remotePassValue}"
+            ]) {
+              sh label: 'Deploy image to remote host', script: """
+                set -euo pipefail
+                export PATH="/usr/local/bin:/opt/homebrew/bin:\$PATH"
 
-              IMAGE_TAG="${imageTag}"
+                IMAGE_TAG="${imageTag}"
 
-              command -v sshpass >/dev/null 2>&1 || { echo "❌ sshpass is required but not installed on the Jenkins agent"; exit 1; }
+                command -v sshpass >/dev/null 2>&1 || { echo "❌ sshpass is required but not installed on the Jenkins agent"; exit 1; }
 
-              echo "🚀 Deploying image: \$IMAGE_TAG"
-              docker image inspect "\$IMAGE_TAG" >/dev/null 2>&1 || { echo "❌ Image not found locally (\$IMAGE_TAG)"; exit 1; }
+                echo "🚀 Deploying image: \$IMAGE_TAG"
+                docker image inspect "\$IMAGE_TAG" >/dev/null 2>&1 || { echo "❌ Image not found locally (\$IMAGE_TAG)"; exit 1; }
 
-              echo "💾 Saving and transferring image to ${remoteHost}"
-              docker save "\$IMAGE_TAG" | gzip | sshpass -p "\$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "\${REMOTE_USER}@${remoteHost}" 'gunzip | docker load'
+                echo "💾 Saving and transferring image to ${remoteHost}"
+                docker save "\$IMAGE_TAG" | gzip | sshpass -p "\$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "\${REMOTE_USER}@${remoteHost}" 'gunzip | docker load'
 
-              echo "🔄 Restarting container ${remoteApp} on ${remoteHost}"
-              sshpass -p "\$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "\${REMOTE_USER}@${remoteHost}" 'bash -s' <<"REMOTE_SCRIPT"
+                echo "🔄 Restarting container ${remoteApp} on ${remoteHost}"
+                sshpass -p "\$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "\${REMOTE_USER}@${remoteHost}" 'bash -s' <<"REMOTE_SCRIPT"
 set -euo pipefail
 docker stop ${remoteApp} || true
 docker rm ${remoteApp} || true
 ${remoteRunCommand}
 REMOTE_SCRIPT
-            """.stripIndent()
+              """.stripIndent()
+            }
           }
+
+          executeDeploy(remoteUsernameParam, remotePasswordParam)
         }
       }
     }
