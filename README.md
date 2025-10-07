@@ -11,6 +11,9 @@ A TypeScript-first Next.js 15 App Router project for showcasing developer utilit
 - 🧰 Example tools: JSON Prettifier, UUID Generator, and JSON Viewer
 - 🖼️ Rich thumbnails with matching lucide-react icons
 
+<img width="1987" height="1107" alt="Screenshot 2025-10-08 at 3 13 03 AM" src="https://github.com/user-attachments/assets/5c39ea0f-4f4f-4944-8c8c-ec9cb19fb09e" />
+
+
 ## Getting started
 
 ```bash
