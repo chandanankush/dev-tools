@@ -38,7 +38,7 @@ pipeline {
     )
     string(
       name: 'REMOTE_PORT_MAPPING',
-      defaultValue: '3000:3000',
+      defaultValue: '5000:3000',
       description: 'Value passed to docker run -p (host:container)'
     )
     string(
