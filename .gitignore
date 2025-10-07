@@ -1,8 +1,9 @@
 /node_modules
 /.next
 /.turbo
-pnpm-lock.yaml
 .env
 .env.local
 .env.development
 .env.production
+pnpm-debug.log
+next-env.d.ts

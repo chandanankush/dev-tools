@@ -71,3 +71,40 @@ Once saved, the tool automatically appears on the homepage, participates in sear
 The project is Vercel-ready with defaults provided by Next.js. Configure your deployment to use the `pnpm build` and `pnpm start` commands or deploy directly from GitHub with Vercel.
 
 Set `NEXT_PUBLIC_SITE_URL` in your hosting environment so `metadata`, `robots.txt`, and `sitemap.xml` use the correct canonical domain.
+
+### Docker on Raspberry Pi
+
+The repository ships with a multi-stage `Dockerfile` optimised for ARM64 (Raspberry Pi 4/5).
+
+Build and run locally (replace the URL with your public hostname):
+
+```bash
+docker buildx build \
+  --platform linux/arm64/v8 \
+  --tag dev-tools:latest \
+  --build-arg NEXT_PUBLIC_SITE_URL="https://dev-tools.local" \
+  .
+
+docker run -d \
+  --name dev-tools \
+  -p 3000:3000 \
+  -e NEXT_PUBLIC_SITE_URL="https://dev-tools.local" \
+  dev-tools:latest
+```
+
+### Jenkins pipeline (Docker deploy)
+
+A declarative `Jenkinsfile` is included for CI builds. The pipeline:
+
+1. Creates/uses a Docker Buildx builder (required for ARM64 cross-builds).
+2. Builds the container image for `linux/arm64/v8`, injecting `NEXT_PUBLIC_SITE_URL`.
+3. Optionally pushes the image to a registry when the `PUSH_IMAGE` parameter is enabled.
+
+Before running the job:
+
+- Ensure the Jenkins agent has Docker Buildx/QEMU support for arm64.
+- Configure a credential with ID `registry-creds` for your container registry (username/password or token).
+- Set the `IMAGE_NAME` parameter to your registry path (e.g., `ghcr.io/your-org/dev-tools`).
+- Provide the public `SITE_URL` so generated metadata and the sitemap use the canonical domain.
+
+Once pushed, you can pull the image on the Raspberry Pi host and run it via `docker run` or `docker compose`.

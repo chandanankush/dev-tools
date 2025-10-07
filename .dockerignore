@@ -1,0 +1,9 @@
+.git
+.gitignore
+.next
+node_modules
+tmp
+Jenkinsfile
+pnpm-debug.log
+npm-debug.log
+yarn-error.log
