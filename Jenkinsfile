@@ -35,6 +35,20 @@ pipeline {
       }
     }
 
+    stage('Repo Info') {
+      steps {
+        script {
+          echo "Branch: ${env.BRANCH_NAME ?: 'unknown'}"
+          echo "Commit: ${env.GIT_COMMIT ?: 'unknown'}"
+          echo "Build URL: ${env.BUILD_URL ?: 'n/a'}"
+        }
+        sh '''
+          echo "HEAD details:" && git --no-pager log -1 --pretty=format:'%H %s (%an)' && echo
+          echo "Current workspace status:" && git status -sb
+        '''
+      }
+    }
+
     stage('Setup Buildx') {
       steps {
         sh '''
