@@ -1,7 +1,8 @@
 import Fuse from "fuse.js";
+import type { IFuseOptions } from "fuse.js";
 import type { ToolSummary } from "./tools.config";
 
-const fuseOptions: Fuse.IFuseOptions<ToolSummary> = {
+const fuseOptions: IFuseOptions<ToolSummary> = {
   includeScore: true,
   threshold: 0.35,
   keys: [

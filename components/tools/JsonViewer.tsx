@@ -66,10 +66,18 @@ function countNodes(value: JsonValue): number {
     return 1;
   }
   if (Array.isArray(value)) {
-    return value.reduce((acc, item) => acc + countNodes(item), 1);
+    let total = 1;
+    for (const item of value) {
+      total += countNodes(item);
+    }
+    return total;
   }
   if (typeof value === "object") {
-    return Object.values(value).reduce((acc, item) => acc + countNodes(item), 1);
+    let total = 1;
+    for (const item of Object.values(value)) {
+      total += countNodes(item);
+    }
+    return total;
   }
   return 1;
 }
