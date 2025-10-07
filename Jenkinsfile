@@ -26,6 +26,7 @@ pipeline {
   environment {
     DOCKER_BUILDKIT = '1'
     BUILDX_INSTANCE = 'multiarch'
+    PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
   }
 
   stages {
@@ -52,7 +53,7 @@ pipeline {
     stage('Setup Buildx') {
       steps {
         sh '''
-          docker buildx create --name "$BUILDX_INSTANCE" --bootstrap --use || docker buildx use "$BUILDX_INSTANCE"
+          docker buildx create --name "${BUILDX_INSTANCE}" --bootstrap --use || docker buildx use "${BUILDX_INSTANCE}"
           docker buildx inspect --bootstrap
         '''
       }
@@ -78,7 +79,7 @@ pipeline {
       steps {
         withCredentials([usernamePassword(credentialsId: 'registry-creds', usernameVariable: 'REGISTRY_USERNAME', passwordVariable: 'REGISTRY_PASSWORD')]) {
           sh '''
-            echo "$REGISTRY_PASSWORD" | docker login "$(echo ${IMAGE_NAME} | cut -d/ -f1)" --username "$REGISTRY_USERNAME" --password-stdin
+            echo "${REGISTRY_PASSWORD}" | docker login "$(echo ${IMAGE_NAME} | cut -d/ -f1)" --username "${REGISTRY_USERNAME}" --password-stdin
             docker buildx build \
               --platform linux/arm64/v8 \
               --build-arg NEXT_PUBLIC_SITE_URL=${SITE_URL} \
@@ -93,7 +94,7 @@ pipeline {
 
   post {
     always {
-      sh 'docker buildx rm "$BUILDX_INSTANCE" || true'
+      sh 'docker buildx rm "${BUILDX_INSTANCE}" || true'
     }
   }
 }
