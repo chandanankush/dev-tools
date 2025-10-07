@@ -21,12 +21,43 @@ pipeline {
       defaultValue: false,
       description: 'Push built image to the registry (requires credentials)'
     )
+    booleanParam(
+      name: 'DEPLOY_REMOTE',
+      defaultValue: false,
+      description: 'Transfer and run the built image on a remote Docker host'
+    )
+    string(
+      name: 'REMOTE_HOST',
+      defaultValue: 'pios.local',
+      description: 'Remote host name or IP for deployment'
+    )
+    string(
+      name: 'REMOTE_APP_NAME',
+      defaultValue: 'dev-tools',
+      description: 'Container name to use on the remote host'
+    )
+    string(
+      name: 'REMOTE_PORT_MAPPING',
+      defaultValue: '3000:3000',
+      description: 'Value passed to docker run -p (host:container)'
+    )
+    string(
+      name: 'REMOTE_ENV_VARS',
+      defaultValue: '-e NEXT_PUBLIC_SITE_URL=${SITE_URL}',
+      description: 'Extra environment flags for docker run (SITE_URL placeholder allowed)'
+    )
+    string(
+      name: 'REMOTE_RUN_ARGS',
+      defaultValue: '',
+      description: 'Additional docker run flags (space-delimited)'
+    )
   }
 
   environment {
     DOCKER_BUILDKIT = '1'
     BUILDX_INSTANCE = 'multiarch'
     PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
+    REMOTE_CREDENTIALS_ID = 'remote-ssh'
   }
 
   stages {
@@ -87,6 +118,80 @@ pipeline {
               --push \
               .
           '''
+        }
+      }
+    }
+
+    stage('Deploy Remote') {
+      when {
+        expression { params.DEPLOY_REMOTE }
+      }
+      steps {
+        script {
+          def imageTag = "${params.IMAGE_NAME}:${env.BUILD_NUMBER}"
+          def remoteHost = params.REMOTE_HOST?.trim()
+          def remoteApp = params.REMOTE_APP_NAME?.trim()
+          def remotePortMapping = params.REMOTE_PORT_MAPPING?.trim()
+          def envArgsRaw = params.REMOTE_ENV_VARS ?: ''
+          def envArgs = envArgsRaw.replace('${SITE_URL}', params.SITE_URL ?: '')
+          def runArgs = params.REMOTE_RUN_ARGS ?: ''
+          def credentialsId = env.REMOTE_CREDENTIALS_ID ?: 'remote-ssh'
+
+          if (!remoteHost) {
+            error('REMOTE_HOST must be provided when DEPLOY_REMOTE is enabled')
+          }
+          if (!remoteApp) {
+            error('REMOTE_APP_NAME must be provided when DEPLOY_REMOTE is enabled')
+          }
+          if (!remotePortMapping) {
+            error('REMOTE_PORT_MAPPING must be provided when DEPLOY_REMOTE is enabled')
+          }
+
+          def envArgsTrimmed = envArgs?.trim()
+          def runArgsTrimmed = runArgs?.trim()
+
+          def runCommandParts = [
+            'docker run',
+            '-d',
+            "--name ${remoteApp}",
+            '--restart unless-stopped',
+            "-p ${remotePortMapping}"
+          ]
+
+          if (envArgsTrimmed) {
+            runCommandParts << envArgsTrimmed
+          }
+          if (runArgsTrimmed) {
+            runCommandParts << runArgsTrimmed
+          }
+          runCommandParts << imageTag
+
+          def remoteRunCommand = runCommandParts.join(' ')
+
+          withCredentials([usernamePassword(credentialsId: credentialsId, usernameVariable: 'REMOTE_USER', passwordVariable: 'REMOTE_PASS')]) {
+            sh label: 'Deploy image to remote host', script: """
+              set -euo pipefail
+              export PATH="/usr/local/bin:/opt/homebrew/bin:\$PATH"
+
+              IMAGE_TAG="${imageTag}"
+
+              command -v sshpass >/dev/null 2>&1 || { echo "❌ sshpass is required but not installed on the Jenkins agent"; exit 1; }
+
+              echo "🚀 Deploying image: \$IMAGE_TAG"
+              docker image inspect "\$IMAGE_TAG" >/dev/null 2>&1 || { echo "❌ Image not found locally (\$IMAGE_TAG)"; exit 1; }
+
+              echo "💾 Saving and transferring image to ${remoteHost}"
+              docker save "\$IMAGE_TAG" | gzip | sshpass -p "\$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "\${REMOTE_USER}@${remoteHost}" 'gunzip | docker load'
+
+              echo "🔄 Restarting container ${remoteApp} on ${remoteHost}"
+              sshpass -p "\$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "\${REMOTE_USER}@${remoteHost}" 'bash -s' <<"REMOTE_SCRIPT"
+set -euo pipefail
+docker stop ${remoteApp} || true
+docker rm ${remoteApp} || true
+${remoteRunCommand}
+REMOTE_SCRIPT
+            """.stripIndent()
+          }
         }
       }
     }
