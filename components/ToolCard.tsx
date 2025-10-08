@@ -7,8 +7,9 @@ import {
   ArrowUpRight,
   Braces,
   Fingerprint,
-  Sparkles,
   ListTree,
+  Link2,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ const iconLibrary: Record<string, LucideIcon> = {
   braces: Braces,
   fingerprint: Fingerprint,
   tree: ListTree,
+  link: Link2,
   default: Sparkles,
 };
 

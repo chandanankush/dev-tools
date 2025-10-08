@@ -1,6 +1,7 @@
 import jsonThumbnail from "@/public/thumbs/json.png";
-import uuidThumbnail from "@/public/thumbs/uuid.png";
 import jsonViewerThumbnail from "@/public/thumbs/json-viewer.png";
+import urlExpanderThumbnail from "@/public/thumbs/url-expander.png";
+import uuidThumbnail from "@/public/thumbs/uuid.png";
 import type { ComponentType } from "react";
 import type { StaticImageData } from "next/image";
 
@@ -45,6 +46,15 @@ export const tools: ToolMeta[] = [
     thumbnail: jsonViewerThumbnail,
     icon: "tree",
     component: () => import("@/components/tools/JsonViewer"),
+  },
+  {
+    slug: "short-url-expander",
+    title: "Short URL Expander",
+    description: "Reveal the final destination behind shortened links.",
+    tags: ["url", "short", "expand"],
+    thumbnail: urlExpanderThumbnail,
+    icon: "link",
+    component: () => import("@/components/tools/UrlExpander"),
   },
 ];
 
