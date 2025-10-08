@@ -51,30 +51,30 @@ export function ToolCard({
     <Link
       href={`/tools/${slug}`}
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/95 shadow-sm transition hover:border-border hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "group relative flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card shadow-sm transition hover:border-border hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         className
       )}
     >
-      <div className="relative aspect-video w-full overflow-hidden bg-muted">
+      <div className="relative aspect-[11/5] w-full overflow-hidden bg-muted">
         <img
           src={thumbnail}
           alt={`${title} thumbnail`}
           className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-80" />
         {Icon ? (
-          <div className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-1 ring-primary/30">
-            <Icon className="h-5 w-5" aria-hidden />
+          <div className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow ring-1 ring-primary/30">
+            <Icon className="h-3 w-3" aria-hidden />
           </div>
         ) : null}
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-lg font-semibold leading-tight text-card-foreground">{title}</h3>
-          <ArrowUpRight className="h-5 w-5 shrink-0 text-muted-foreground transition group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:text-primary" />
+        <div className="absolute inset-x-2 bottom-2 flex items-start justify-between gap-2 rounded-md bg-background/85 px-2.5 py-2 text-left shadow-sm backdrop-blur">
+          <div className="flex-1 space-y-1">
+            <h3 className="truncate text-[13px] font-semibold leading-tight text-card-foreground">{title}</h3>
+            <p className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">{description}</p>
+          </div>
+          <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
         </div>
-        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
     </Link>
   );
