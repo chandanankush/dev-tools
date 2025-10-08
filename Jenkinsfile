@@ -8,7 +8,7 @@ pipeline {
   parameters {
     string(
       name: 'SITE_URL',
-      defaultValue: 'https://dev-tools.example.com',
+      defaultValue: 'https://mopplications.com',
       description: 'Public URL for metadata (sets NEXT_PUBLIC_SITE_URL)'
     )
     string(
