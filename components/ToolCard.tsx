@@ -9,6 +9,7 @@ import {
   Fingerprint,
   ListTree,
   Link2,
+  QrCode,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const iconLibrary: Record<string, LucideIcon> = {
   fingerprint: Fingerprint,
   tree: ListTree,
   link: Link2,
+  qrcode: QrCode,
   default: Sparkles,
 };
 

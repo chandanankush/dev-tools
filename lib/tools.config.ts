@@ -1,5 +1,6 @@
 import jsonThumbnail from "@/public/thumbs/json.png";
 import jsonViewerThumbnail from "@/public/thumbs/json-viewer.png";
+import qrCodeThumbnail from "@/public/thumbs/qr-code.png";
 import urlExpanderThumbnail from "@/public/thumbs/url-expander.png";
 import uuidThumbnail from "@/public/thumbs/uuid.png";
 import type { ComponentType } from "react";
@@ -55,6 +56,15 @@ export const tools: ToolMeta[] = [
     thumbnail: urlExpanderThumbnail,
     icon: "link",
     component: () => import("@/components/tools/UrlExpander"),
+  },
+  {
+    slug: "qr-code-generator",
+    title: "QR Code Generator",
+    description: "Encode text or URLs into QR codes with instant preview and PNG download.",
+    tags: ["qr", "code", "generator"],
+    thumbnail: qrCodeThumbnail,
+    icon: "qrcode",
+    component: () => import("@/components/tools/QrCodeGenerator"),
   },
 ];
 
