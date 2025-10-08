@@ -5,21 +5,46 @@ import "../styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-sans" });
 
-const title = "Dev Toolkit";
+const siteName = "Dev Toolkit";
 const description = "A curated collection of developer utilities built with Next.js 15.";
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dev-tools.example.com";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mopplications.com";
 
 export const metadata: Metadata = {
   title: {
-    default: title,
-    template: `%s | ${title}`,
-  }, 
+    default: siteName,
+    template: `%s | ${siteName}`,
+  },
   description,
   metadataBase: new URL(baseUrl),
+  applicationName: siteName,
+  keywords: [
+    "developer tools",
+    "next.js utilities",
+    "json prettifier",
+    "uuid generator",
+    "qr code generator",
+    "jwt generator",
+    "url expander",
+  ],
+  alternates: {
+    canonical: baseUrl,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      maxSnippet: -1,
+      maxImagePreview: "large",
+      maxVideoPreview: -1,
+    },
+  },
   openGraph: {
-    title,
+    title: siteName,
     description,
-    siteName: title,
+    url: baseUrl,
+    siteName,
     type: "website",
     locale: "en_US",
     images: [
@@ -27,13 +52,13 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: title,
+        alt: siteName,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title,
+    title: siteName,
     description,
   },
   icons: {

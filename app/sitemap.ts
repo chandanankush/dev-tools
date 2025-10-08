@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { tools } from "@/lib/tools.config";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dev-tools.example.com";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mopplications.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date().toISOString();
