@@ -5,6 +5,7 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
+  Binary,
   Braces,
   Fingerprint,
   ListTree,
@@ -31,6 +32,7 @@ const iconLibrary: Record<string, LucideIcon> = {
   tree: ListTree,
   link: Link2,
   qrcode: QrCode,
+  binary: Binary,
   shield: ShieldCheck,
   default: Sparkles,
 };

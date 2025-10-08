@@ -1,3 +1,4 @@
+import base64Thumbnail from "@/public/thumbs/base64.png";
 import jsonThumbnail from "@/public/thumbs/json.png";
 import jsonViewerThumbnail from "@/public/thumbs/json-viewer.png";
 import jwtGeneratorThumbnail from "@/public/thumbs/jwt-generator.png";
@@ -75,6 +76,15 @@ export const tools: ToolMeta[] = [
     thumbnail: jwtGeneratorThumbnail,
     icon: "shield",
     component: () => import("@/components/tools/JwtGenerator"),
+  },
+  {
+    slug: "base64-tool",
+    title: "Base64 Tool",
+    description: "Encode plain text or decode Base64 strings with instant copy-friendly output.",
+    tags: ["base64", "encoding", "decoding"],
+    thumbnail: base64Thumbnail,
+    icon: "binary",
+    component: () => import("@/components/tools/Base64Utility"),
   },
 ];
 
