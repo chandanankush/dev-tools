@@ -10,6 +10,7 @@ import {
   ListTree,
   Link2,
   QrCode,
+  ShieldCheck,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -30,6 +31,7 @@ const iconLibrary: Record<string, LucideIcon> = {
   tree: ListTree,
   link: Link2,
   qrcode: QrCode,
+  shield: ShieldCheck,
   default: Sparkles,
 };
 

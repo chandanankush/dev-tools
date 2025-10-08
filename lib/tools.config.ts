@@ -1,5 +1,6 @@
 import jsonThumbnail from "@/public/thumbs/json.png";
 import jsonViewerThumbnail from "@/public/thumbs/json-viewer.png";
+import jwtGeneratorThumbnail from "@/public/thumbs/jwt-generator.png";
 import qrCodeThumbnail from "@/public/thumbs/qr-code.png";
 import urlExpanderThumbnail from "@/public/thumbs/url-expander.png";
 import uuidThumbnail from "@/public/thumbs/uuid.png";
@@ -65,6 +66,15 @@ export const tools: ToolMeta[] = [
     thumbnail: qrCodeThumbnail,
     icon: "qrcode",
     component: () => import("@/components/tools/QrCodeGenerator"),
+  },
+  {
+    slug: "jwt-generator",
+    title: "JWT Generator",
+    description: "Craft HS256 JWTs with custom payload fields directly in your browser.",
+    tags: ["jwt", "auth", "token"],
+    thumbnail: jwtGeneratorThumbnail,
+    icon: "shield",
+    component: () => import("@/components/tools/JwtGenerator"),
   },
 ];
 
