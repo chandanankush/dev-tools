@@ -1,6 +1,6 @@
 import base64Thumbnail from "@/public/thumbs/base64.png";
 import jsonThumbnail from "@/public/thumbs/json.png";
-import jsonViewerThumbnail from "@/public/thumbs/json-viewer.png";
+
 import jwtGeneratorThumbnail from "@/public/thumbs/jwt-generator.png";
 import qrCodeThumbnail from "@/public/thumbs/qr-code.png";
 import urlExpanderThumbnail from "@/public/thumbs/url-expander.png";
@@ -24,13 +24,13 @@ export type ToolSummary = Omit<ToolMeta, "component" | "thumbnail"> & {
 
 export const tools: ToolMeta[] = [
   {
-    slug: "json-prettifier",
-    title: "JSON Prettifier",
-    description: "Format and validate JSON with instant feedback.",
-    tags: ["json", "format", "developer"],
+    slug: "json-tools",
+    title: "JSON Tools",
+    description: "All-in-one JSON utility: Prettify, Validate, and Explore.",
+    tags: ["json", "format", "viewer", "tree", "developer"],
     thumbnail: jsonThumbnail,
     icon: "braces",
-    component: () => import("@/components/tools/JsonPrettifier"),
+    component: () => import("@/components/tools/JsonTools"),
   },
   {
     slug: "uuid-generator",
@@ -40,15 +40,6 @@ export const tools: ToolMeta[] = [
     thumbnail: uuidThumbnail,
     icon: "fingerprint",
     component: () => import("@/components/tools/UuidGenerator"),
-  },
-  {
-    slug: "json-viewer",
-    title: "JSON Viewer",
-    description: "Inspect and explore JSON data with a blazing-fast tree explorer.",
-    tags: ["json", "viewer", "tree"],
-    thumbnail: jsonViewerThumbnail,
-    icon: "tree",
-    component: () => import("@/components/tools/JsonViewer"),
   },
   {
     slug: "short-url-expander",
