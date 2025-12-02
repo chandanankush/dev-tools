@@ -2,12 +2,12 @@
 
 import { useState, useCallback } from "react";
 import {
+  Download,
   Eraser,
   FileJson,
   FileText,
   Indent,
   Minimize2,
-  RefreshCw,
 } from "lucide-react";
 
 import JsonViewer from "@/components/tools/JsonViewer";
@@ -16,13 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 type Tab = "text" | "viewer";
-
-const sampleJson = {
-  name: "Dev Toolkit",
-  version: "1.0.0",
-  features: ["Prettifier", "Viewer", "Minifier"],
-  active: true,
-};
 
 export default function JsonTools() {
   const [activeTab, setActiveTab] = useState<Tab>("text");
@@ -56,10 +49,30 @@ export default function JsonTools() {
     setError(null);
   }, []);
 
-  const handleLoadSample = useCallback(() => {
-    setJsonContent(JSON.stringify(sampleJson, null, 2));
-    setError(null);
-  }, []);
+  const handleDownload = useCallback(() => {
+    try {
+      if (!jsonContent.trim()) {
+        setError("Please enter JSON to download.");
+        return;
+      }
+
+      const parsed = JSON.parse(jsonContent);
+      const formatted = JSON.stringify(parsed, null, 2);
+
+      const blob = new Blob([formatted], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "data.json";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setError(null);
+    } catch (err) {
+      setError(`Invalid JSON: ${(err as Error).message}`);
+    }
+  }, [jsonContent]);
 
   const getParsedData = useCallback(() => {
     try {
@@ -134,12 +147,12 @@ export default function JsonTools() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleLoadSample}
+            onClick={handleDownload}
             className="h-8 gap-2 text-muted-foreground hover:text-foreground"
-            title="Load Sample Data"
+            title="Download JSON"
           >
-            <RefreshCw className="h-4 w-4" />
-            <span className="hidden sm:inline">Load Data</span>
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Download JSON</span>
           </Button>
         </div>
       </div>
