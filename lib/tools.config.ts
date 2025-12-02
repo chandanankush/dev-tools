@@ -1,4 +1,5 @@
 import base64Thumbnail from "@/public/thumbs/base64.png";
+import compareThumbnail from "@/public/thumbs/json.png";
 import jsonThumbnail from "@/public/thumbs/json.png";
 
 import jwtGeneratorThumbnail from "@/public/thumbs/jwt-generator.png";
@@ -67,6 +68,15 @@ export const tools: ToolMeta[] = [
     thumbnail: jwtGeneratorThumbnail,
     icon: "shield",
     component: () => import("@/components/tools/JwtGenerator"),
+  },
+  {
+    slug: "compare-tools",
+    title: "Compare Tools",
+    description: "Side-by-side comparison for JSON payloads and cURL commands.",
+    tags: ["compare", "json", "curl", "diff"],
+    thumbnail: compareThumbnail,
+    icon: "braces",
+    component: () => import("@/components/tools/CompareTools"),
   },
   {
     slug: "base64-tool",
