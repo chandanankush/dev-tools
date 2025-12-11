@@ -5,13 +5,15 @@ import { cn } from "@/lib/utils";
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   asChild?: boolean;
-  variant?: "default" | "outline" | "ghost";
+  variant?: "default" | "secondary" | "outline" | "ghost";
   size?: "default" | "sm" | "icon";
 };
 
 const variantClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
   default:
     "bg-primary text-primary-foreground shadow transition hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+  secondary:
+    "bg-secondary text-secondary-foreground transition hover:bg-secondary/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
   outline:
     "border border-input bg-background text-foreground transition hover:bg-accent hover:text-accent-foreground",
   ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
