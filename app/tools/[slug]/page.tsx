@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ToolShell } from "@/components/ToolShell";
-import { getToolBySlug, tools } from "@/lib/tools.config";
+import { getToolBySlug } from "@/lib/tools.config";
 
 interface ToolPageProps {
   params: Promise<{
@@ -10,9 +10,7 @@ interface ToolPageProps {
   }>;
 }
 
-export async function generateStaticParams() {
-  return tools.map((tool) => ({ slug: tool.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: ToolPageProps): Promise<Metadata> {
   const { slug } = await params;

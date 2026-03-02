@@ -9,6 +9,8 @@ const siteName = "Dev Toolkit";
 const description = "A curated collection of developer utilities built with Next.js 15.";
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mopplications.com";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     default: siteName,
