@@ -34,6 +34,49 @@ pnpm dev
 - `pnpm start` – run the production server
 - `pnpm lint` – lint with ESLint and Next.js rules
 - `pnpm format` – format all supported files with Prettier
+- `pnpm test` – run regression tests (Vitest)
+- `pnpm test:watch` – run tests in watch mode
+
+## Security
+
+This project includes nonce-based CSP and response hardening headers via Next.js middleware (`middleware.ts`).
+
+- Per-request nonce generation and forwarding to app routes via `x-nonce` request header.
+- `Content-Security-Policy` enforced with strict `script-src 'self' 'nonce-...'` in production.
+- Additional hardening headers:
+  - `X-Frame-Options: DENY`
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- Middleware matcher applies to app/API routes while excluding static/framework assets.
+
+### Development note (CSP)
+
+For local development only, CSP includes limited allowances required by Next.js dev runtime:
+
+- `script-src` includes `'unsafe-eval'`
+- `connect-src` allows `ws:`/`wss:` for HMR
+
+Production remains strict and does **not** include `'unsafe-eval'`.
+
+## Testing
+
+Regression tests are documented in [testcase.md](./testcase.md), with important cases for each tool:
+
+- JSON Tools
+- Compare Tools
+- Base64 Tool
+- JWT Generator
+- QR Code Generator
+- URL Expander
+- UUID Generator
+
+Recommended post-change verification:
+
+```bash
+pnpm test
+pnpm build
+```
 
 ## Project layout
 
