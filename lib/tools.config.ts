@@ -106,6 +106,15 @@ export const tools: ToolMeta[] = [
     icon: "clock",
     component: () => import("@/components/tools/TimestampConverter"),
   },
+  {
+    slug: "url-encoder-decoder",
+    title: "URL Encoder / Decoder",
+    description: "Percent-encode or decode URL components instantly. Safe for query params, path segments, and full URLs.",
+    tags: ["url", "encode", "decode", "percent", "developer"],
+    thumbnail: urlExpanderThumbnail,
+    icon: "globe2",
+    component: () => import("@/components/tools/UrlEncoderDecoder"),
+  },
 ];
 
 export function getToolBySlug(slug: string): ToolMeta | undefined {
