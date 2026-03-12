@@ -1,5 +1,5 @@
 import base64Thumbnail from "@/public/thumbs/base64.png";
-import compareThumbnail from "@/public/thumbs/json.png";
+import compareThumbnail from "@/public/thumbs/json-viewer.png";
 import jsonThumbnail from "@/public/thumbs/json.png";
 
 import jwtGeneratorThumbnail from "@/public/thumbs/jwt-generator.png";
@@ -89,6 +89,10 @@ export const tools: ToolMeta[] = [
   },
 ];
 
+export function getToolBySlug(slug: string): ToolMeta | undefined {
+  return tools.find((tool) => tool.slug === slug);
+}
+
 export const toolSummaries: ToolSummary[] = tools.map((tool) => {
   const { component, thumbnail, ...rest } = tool;
   void component;
@@ -97,7 +101,3 @@ export const toolSummaries: ToolSummary[] = tools.map((tool) => {
     thumbnail: thumbnail.src,
   };
 });
-
-export function getToolBySlug(slug: string) {
-  return tools.find((tool) => tool.slug === slug);
-}
