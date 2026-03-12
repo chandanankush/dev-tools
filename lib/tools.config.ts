@@ -97,6 +97,15 @@ export const tools: ToolMeta[] = [
     icon: "braces",
     component: () => import("@/components/tools/RegexTester"),
   },
+  {
+    slug: "timestamp-converter",
+    title: "Timestamp Converter",
+    description: "Convert Unix timestamps to human-readable dates and back. Supports seconds/milliseconds and local/UTC timezones.",
+    tags: ["timestamp", "date", "unix", "converter", "time"],
+    thumbnail: uuidThumbnail,
+    icon: "clock",
+    component: () => import("@/components/tools/TimestampConverter"),
+  },
 ];
 
 export function getToolBySlug(slug: string): ToolMeta | undefined {

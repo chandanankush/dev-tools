@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   Binary,
   Braces,
+  Clock,
   Fingerprint,
   ListTree,
   Link2,
@@ -27,6 +28,7 @@ interface ToolCardProps {
 
 const iconConfig: Record<string, { icon: LucideIcon; color: string; bg: string }> = {
   braces:      { icon: Braces,      color: "text-blue-500",    bg: "bg-blue-500/10"    },
+  clock:       { icon: Clock,       color: "text-violet-500",  bg: "bg-violet-500/10"  },
   fingerprint: { icon: Fingerprint, color: "text-emerald-500", bg: "bg-emerald-500/10" },
   tree:        { icon: ListTree,    color: "text-indigo-500",  bg: "bg-indigo-500/10"  },
   link:        { icon: Link2,       color: "text-amber-500",   bg: "bg-amber-500/10"   },
