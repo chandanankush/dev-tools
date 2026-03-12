@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
+import { headers } from "next/headers";
 import "../styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-sans" });
@@ -70,7 +71,9 @@ export const viewport: Viewport = {
   themeColor: "#5b21b6",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Reading x-nonce here signals Next.js to propagate the nonce to its injected scripts.
+  await headers();
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans`}>{children}</body>
