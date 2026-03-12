@@ -115,6 +115,15 @@ export const tools: ToolMeta[] = [
     icon: "globe2",
     component: () => import("@/components/tools/UrlEncoderDecoder"),
   },
+  {
+    slug: "password-generator",
+    title: "Password Generator",
+    description: "Generate strong, cryptographically random passwords with configurable length and character sets.",
+    tags: ["password", "security", "generator", "random"],
+    thumbnail: uuidThumbnail,
+    icon: "key",
+    component: () => import("@/components/tools/PasswordGenerator"),
+  },
 ];
 
 export function getToolBySlug(slug: string): ToolMeta | undefined {
