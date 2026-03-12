@@ -14,7 +14,7 @@ export async function generateStaticParams() {
   return tools.map((tool) => ({ slug: tool.slug }));
 }
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mopplications.com";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mopplications.com";
 
 export async function generateMetadata({ params }: ToolPageProps): Promise<Metadata> {
   const { slug } = await params;

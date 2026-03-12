@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { tools } from "@/lib/tools.config";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mopplications.com";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mopplications.com";
 
 // Use a fixed build date so lastModified doesn't change on every crawl.
 // Update this when you make meaningful content changes to signal Google to re-crawl.
