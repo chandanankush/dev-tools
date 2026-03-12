@@ -1,49 +1,85 @@
+import { Terminal, Zap, Globe } from "lucide-react";
 import { ToolGallery } from "@/components/ToolGallery";
 import { toolSummaries } from "@/lib/tools.config";
 
-const totalTools = toolSummaries.length;
-const totalTags = new Set(toolSummaries.flatMap((tool) => tool.tags)).size;
-
 export default function HomePage() {
   return (
-    <main className="relative isolate overflow-hidden">
-      <div className="pointer-events-none absolute inset-x-0 -top-28 -z-10 blur-2xl">
-        <div className="mx-auto h-40 w-[44rem] bg-gradient-to-r from-primary/25 via-sky-500/20 to-purple-500/25 opacity-60" />
+    <main className="relative isolate min-h-screen overflow-hidden">
+      {/* Dot-grid background */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0)",
+          backgroundSize: "28px 28px",
+          opacity: 0.5,
+        }}
+      />
+      {/* Gradient orb */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-48 -z-10 flex justify-center"
+      >
+        <div className="h-96 w-[64rem] rounded-full bg-gradient-to-r from-primary/20 via-sky-500/15 to-purple-500/20 blur-3xl" />
       </div>
-      <div className="container space-y-8 py-10 sm:space-y-10 sm:py-12">
-        <header className="mx-auto flex flex-col items-center gap-5 text-center sm:max-w-3xl sm:gap-6">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
-            Developer Utilities
-            <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
-              {totalTools}+ tools
+
+      <div className="container space-y-8 py-10 sm:py-14">
+        {/* ── Hero ── */}
+        <header className="mx-auto flex flex-col items-center gap-4 text-center sm:max-w-3xl">
+          {/* Terminal badge */}
+          <div className="inline-flex items-center gap-2 rounded-md border border-border/80 bg-card/80 px-4 py-1.5 font-mono text-xs text-muted-foreground shadow-sm backdrop-blur">
+            <span className="text-emerald-500">$</span>
+            <span>~/dev-toolkit</span>
+            <span className="animate-pulse text-primary">▋</span>
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              Tools built for{" "}
+              <span className="bg-gradient-to-r from-primary via-sky-500 to-purple-500 bg-clip-text text-transparent">
+                developers
+              </span>
+            </h1>
+          </div>
+
+          {/* Feature pills */}
+          <div className="flex flex-wrap justify-center gap-2">
+            {(
+              [
+                { icon: Zap,      label: "Zero install"    },
+                { icon: Globe,    label: "Browser native"  },
+                { icon: Terminal, label: "Next.js 15 RSC"  },
+              ] as const
+            ).map(({ icon: Icon, label }) => (
+              <span
+                key={label}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3.5 py-1 text-xs text-muted-foreground backdrop-blur"
+              >
+                <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
+                {label}
+              </span>
+            ))}
+          </div>
+
+        </header>
+
+        {/* ── Divider ── */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border/40" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-background px-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+              browse tools
             </span>
           </div>
-          <div className="space-y-2.5 sm:space-y-3">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Supercharge your workflow in the browser.
-            </h1>
-            <p className="mx-auto max-w-2xl text-sm text-muted-foreground sm:text-base">
-              Explore a curated collection of developer-first utilities built with Next.js 15. Every
-              tool launches instantly, works offline, and is simple to extend with your own ideas.
-            </p>
-          </div>
-          <div className="grid w-full gap-2.5 sm:grid-cols-3 sm:gap-3">
-            <div className="rounded-xl border border-border/60 bg-card/80 p-3.5 shadow-sm">
-              <p className="text-xl font-semibold text-card-foreground">{totalTools}</p>
-              <p className="text-[11px] text-muted-foreground">Curated utilities</p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-card/80 p-3.5 shadow-sm">
-              <p className="text-xl font-semibold text-card-foreground">{totalTags}</p>
-              <p className="text-[11px] text-muted-foreground">Unique tags for filtering</p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-card/80 p-3.5 shadow-sm">
-              <p className="text-xl font-semibold text-card-foreground">RSC</p>
-              <p className="text-[11px] text-muted-foreground">Optimized with App Router</p>
-            </div>
-          </div>
-        </header>
+        </div>
+
+        {/* ── Gallery ── */}
         <ToolGallery tools={toolSummaries} />
       </div>
     </main>
   );
 }
+
