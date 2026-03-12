@@ -1,6 +1,7 @@
 import base64Thumbnail from "@/public/thumbs/base64.png";
 import compareThumbnail from "@/public/thumbs/json-viewer.png";
 import jsonThumbnail from "@/public/thumbs/json.png";
+import regexThumbnail from "@/public/thumbs/uuid.png";
 
 import jwtGeneratorThumbnail from "@/public/thumbs/jwt-generator.png";
 import qrCodeThumbnail from "@/public/thumbs/qr-code.png";
@@ -86,6 +87,15 @@ export const tools: ToolMeta[] = [
     thumbnail: base64Thumbnail,
     icon: "binary",
     component: () => import("@/components/tools/Base64Utility"),
+  },
+  {
+    slug: "regex-tester",
+    title: "Regex Tester",
+    description: "Build and test regular expressions with live match highlighting, flag toggles, and named group support.",
+    tags: ["regex", "regexp", "search", "developer"],
+    thumbnail: regexThumbnail,
+    icon: "braces",
+    component: () => import("@/components/tools/RegexTester"),
   },
 ];
 
