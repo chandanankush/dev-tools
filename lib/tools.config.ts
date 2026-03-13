@@ -124,6 +124,15 @@ export const tools: ToolMeta[] = [
     icon: "key",
     component: () => import("@/components/tools/PasswordGenerator"),
   },
+  {
+    slug: "basic-calculator",
+    title: "Basic Calculator",
+    description: "Evaluate arithmetic expressions with history. Supports +, -, *, /, parentheses, and decimals.",
+    tags: ["calculator", "math", "arithmetic", "developer"],
+    thumbnail: uuidThumbnail,
+    icon: "calculator",
+    component: () => import("@/components/tools/BasicCalculator"),
+  },
 ];
 
 export function getToolBySlug(slug: string): ToolMeta | undefined {

@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   Binary,
   Braces,
+  Calculator,
   Clock,
   Fingerprint,
   Globe,
@@ -39,6 +40,7 @@ const iconConfig: Record<string, { icon: LucideIcon; color: string; bg: string }
   qrcode:      { icon: QrCode,      color: "text-cyan-500",    bg: "bg-cyan-500/10"    },
   binary:      { icon: Binary,      color: "text-pink-500",    bg: "bg-pink-500/10"    },
   shield:      { icon: ShieldCheck, color: "text-orange-500",  bg: "bg-orange-500/10"  },
+  calculator:  { icon: Calculator,  color: "text-sky-500",     bg: "bg-sky-500/10"     },
   default:     { icon: Sparkles,    color: "text-primary",     bg: "bg-primary/10"     },
 };
 

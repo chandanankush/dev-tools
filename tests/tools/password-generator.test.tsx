@@ -40,12 +40,12 @@ describe("PasswordGenerator", () => {
 
   it("generates a new password on regenerate click", () => {
     render(<PasswordGenerator />);
-    const before = (document.querySelector(".font-mono.text-base") as HTMLElement).textContent;
+    // Password is hidden by default (shown as dots); use the dots element which is stable
+    const dotsBefore = screen.getByText(/^•+$/).textContent;
     fireEvent.click(screen.getByRole("button", { name: /generate password/i }));
-    const after = (document.querySelector(".font-mono.text-base") as HTMLElement).textContent;
-    // With the deterministic mock values will differ
-    expect(typeof after).toBe("string");
-    expect(after?.length).toBeGreaterThan(0);
-    void before;
+    const dotsAfter = screen.getByText(/^•+$/).textContent;
+    expect(typeof dotsAfter).toBe("string");
+    expect(dotsAfter?.length).toBeGreaterThan(0);
+    void dotsBefore;
   });
 });
