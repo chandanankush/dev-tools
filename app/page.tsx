@@ -1,4 +1,4 @@
-import { Terminal, Zap, Globe } from "lucide-react";
+import { Terminal, Zap, Globe, Github, Star, GitPullRequest, CircleDot, Linkedin } from "lucide-react";
 import { ToolGallery } from "@/components/ToolGallery";
 import { toolSummaries } from "@/lib/tools.config";
 
@@ -78,6 +78,57 @@ export default function HomePage() {
 
         {/* ── Gallery ── */}
         <ToolGallery tools={toolSummaries} />
+
+        {/* ── Footer ── */}
+        <footer className="border-t border-border/40 pt-10 pb-6">
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+            {/* Headline */}
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Open source &amp; community driven</p>
+              <p className="text-xs text-muted-foreground">
+                Built with Next.js 15. All tools run client-side — no data leaves your browser.
+              </p>
+            </div>
+
+            {/* GitHub CTAs */}
+            <div className="flex flex-wrap justify-center gap-3">
+              {[
+                { href: "https://github.com/chandanankush/dev-tools", icon: Star,            label: "Star on GitHub"   },
+                { href: "https://github.com/chandanankush/dev-tools/fork", icon: GitPullRequest, label: "Contribute"        },
+                { href: "https://github.com/chandanankush/dev-tools/issues/new", icon: CircleDot,      label: "Raise an issue"   },
+                { href: "https://github.com/chandanankush/dev-tools", icon: Github,          label: "View source"      },
+              ].map(({ href, icon: Icon, label }) => (
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3.5 py-1.5 text-xs text-muted-foreground backdrop-blur transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden />
+                  {label}
+                </a>
+              ))}
+            </div>
+
+            {/* Divider + author */}
+            <div className="flex w-full items-center gap-4">
+              <div className="h-px flex-1 bg-border/40" />
+              <span className="text-[11px] text-muted-foreground/60">made by</span>
+              <div className="h-px flex-1 bg-border/40" />
+            </div>
+
+            <a
+              href="https://www.linkedin.com/in/chandan-singh-mobileengineer/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-4 py-2 text-sm font-medium text-muted-foreground backdrop-blur transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+            >
+              <Linkedin className="h-4 w-4" aria-hidden />
+              Chandan Singh — Mobile Engineer
+            </a>
+          </div>
+        </footer>
       </div>
     </main>
   );
