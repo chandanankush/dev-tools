@@ -86,7 +86,7 @@ export default function HomePage() {
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Open source &amp; community driven</p>
               <p className="text-xs text-muted-foreground">
-                Built with Next.js 15. All tools run client-side — no data leaves your browser.
+                Built with Next.js 15. Most tools run entirely client-side. The Short URL Expander uses a server-side proxy to follow redirects.
               </p>
             </div>
 
