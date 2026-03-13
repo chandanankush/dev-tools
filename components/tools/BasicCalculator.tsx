@@ -14,9 +14,61 @@ function safeEval(expr: string): string {
   const trimmed = expr.trim();
   if (!trimmed) throw new Error("Expression is empty");
   if (!ALLOWED_RE.test(trimmed)) throw new Error("Invalid characters in expression");
-  // eslint-disable-next-line no-new-func
-  const result: unknown = new Function(`"use strict"; return (${trimmed})`)();
-  if (typeof result !== "number") throw new Error("Expression did not evaluate to a number");
+
+  // Recursive descent parser — no eval/new Function (CSP-safe)
+  let pos = 0;
+  const input = trimmed.replace(/\s+/g, "");
+
+  function parseNumber(): number {
+    const start = pos;
+    while (pos < input.length && /[0-9]/.test(input[pos])) pos++;
+    if (pos < input.length && input[pos] === ".") {
+      pos++;
+      while (pos < input.length && /[0-9]/.test(input[pos])) pos++;
+    }
+    if (pos === start) throw new Error("Unexpected token at position " + pos);
+    return parseFloat(input.slice(start, pos));
+  }
+
+  function parseFactor(): number {
+    if (pos < input.length && input[pos] === "-") { pos++; return -parseFactor(); }
+    if (pos < input.length && input[pos] === "+") { pos++; return parseFactor(); }
+    if (pos < input.length && input[pos] === "(") {
+      pos++;
+      const val = parseExpr();
+      if (pos >= input.length || input[pos] !== ")") throw new Error("Mismatched parentheses");
+      pos++;
+      return val;
+    }
+    return parseNumber();
+  }
+
+  function parseTerm(): number {
+    let left = parseFactor();
+    while (pos < input.length && (input[pos] === "*" || input[pos] === "/")) {
+      const op = input[pos++];
+      const right = parseFactor();
+      if (op === "/") {
+        if (right === 0) throw new Error("Result is undefined (e.g. division by zero)");
+        left = left / right;
+      } else {
+        left = left * right;
+      }
+    }
+    return left;
+  }
+
+  function parseExpr(): number {
+    let left = parseTerm();
+    while (pos < input.length && (input[pos] === "+" || input[pos] === "-")) {
+      const op = input[pos++];
+      left = op === "+" ? left + parseTerm() : left - parseTerm();
+    }
+    return left;
+  }
+
+  const result = parseExpr();
+  if (pos !== input.length) throw new Error("Unexpected character: " + input[pos]);
   if (!isFinite(result)) throw new Error("Result is undefined (e.g. division by zero)");
   return Number(result.toPrecision(12)).toString();
 }
