@@ -2,7 +2,12 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { headers } from "next/headers";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import "../styles/globals.css";
+
+// Runs before React hydrates — reads localStorage and sets .dark on <html> with zero flash.
+const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}}catch(e){}})();`;
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-sans" });
 
@@ -72,11 +77,19 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  // Reading x-nonce here signals Next.js to propagate the nonce to its injected scripts.
-  await headers();
+  const hdrs = await headers();
+  const nonce = hdrs.get("x-nonce") ?? "";
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans`}>{children}</body>
+      <head>
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} suppressHydrationWarning />
+      </head>
+      <body className={`${inter.variable} font-sans`}>
+        <ThemeProvider>
+          <ThemeToggle />
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

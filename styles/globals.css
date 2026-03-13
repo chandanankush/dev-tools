@@ -28,25 +28,25 @@
 }
 
 .dark {
-  --background: 224 71% 4%;
-  --foreground: 210 20% 98%;
-  --card: 224 71% 4%;
-  --card-foreground: 210 20% 98%;
-  --popover: 224 71% 4%;
-  --popover-foreground: 210 20% 98%;
-  --primary: 262 83% 58%;
+  --background: 222 47% 7%;       /* deep navy — base layer               */
+  --foreground: 210 20% 95%;      /* near-white — primary text             */
+  --card: 220 40% 12%;            /* elevated surface — distinct from bg   */
+  --card-foreground: 210 20% 95%;
+  --popover: 220 40% 12%;
+  --popover-foreground: 210 20% 95%;
+  --primary: 262 83% 65%;         /* brighter violet — readable on dark    */
   --primary-foreground: 210 20% 98%;
-  --secondary: 215 27% 16%;
-  --secondary-foreground: 210 20% 98%;
-  --muted: 215 27% 16%;
-  --muted-foreground: 217 19% 75%;
-  --accent: 215 27% 16%;
-  --accent-foreground: 210 20% 98%;
-  --destructive: 0 62% 30%;
+  --secondary: 215 35% 20%;       /* raised surface for chips / tags       */
+  --secondary-foreground: 210 20% 92%;
+  --muted: 215 35% 17%;           /* subtle inset bg                       */
+  --muted-foreground: 215 20% 68%; /* secondary text — clear on dark bg    */
+  --accent: 215 35% 20%;
+  --accent-foreground: 210 20% 92%;
+  --destructive: 0 70% 58%;       /* bright red — visible on dark bg       */
   --destructive-foreground: 210 20% 98%;
-  --border: 215 27% 16%;
-  --input: 215 27% 16%;
-  --ring: 262 83% 58%;
+  --border: 215 35% 27%;          /* clearly visible dividers & outlines   */
+  --input: 215 35% 17%;
+  --ring: 262 83% 65%;
   color-scheme: dark;
 }
 
