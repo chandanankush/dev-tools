@@ -25,11 +25,25 @@ type CurlDiffResult = {
   rightValue: string | null;
 };
 
+/** Internal line representation used when rendering a single JSON subtree. */
 type DiffLine = {
   indent: number;
   keyPart: string;
   valuePart: string;
-  status: "same" | "added" | "removed";
+};
+
+/** One cell in a side-by-side row. */
+type SideBySideCell = {
+  indent: number;
+  keyPart: string;
+  valuePart: string;
+  highlight: "none" | "removed" | "added" | "empty";
+};
+
+/** One row in the side-by-side diff (left = JSON A, right = JSON B). */
+type SideBySideRow = {
+  left: SideBySideCell;
+  right: SideBySideCell;
 };
 
 // ─── Sample data ──────────────────────────────────────────────────────────────
@@ -66,7 +80,7 @@ export default function CompareTools() {
   // JSON state
   const [jsonA, setJsonA] = useState(jsonSampleA);
   const [jsonB, setJsonB] = useState(jsonSampleB);
-  const [jsonDiffLines, setJsonDiffLines] = useState<DiffLine[]>([]);
+  const [jsonRows, setJsonRows] = useState<SideBySideRow[]>([]);
   const [jsonDiffCount, setJsonDiffCount] = useState(0);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [jsonCompared, setJsonCompared] = useState(false);
@@ -84,15 +98,15 @@ export default function CompareTools() {
     try {
       const left = JSON.parse(jsonA);
       const right = JSON.parse(jsonB);
-      const lines: DiffLine[] = [];
-      buildDiffLines(left, right, 0, null, true, lines);
+      const rows: SideBySideRow[] = [];
+      buildSideBySideRows(left, right, 0, null, true, rows);
       const count = countJsonDiff(left, right);
-      setJsonDiffLines(lines);
+      setJsonRows(rows);
       setJsonDiffCount(count);
       setJsonError(null);
     } catch (error) {
       setJsonError((error as Error).message || "Invalid JSON input.");
-      setJsonDiffLines([]);
+      setJsonRows([]);
       setJsonDiffCount(0);
     }
     setJsonCompared(true);
@@ -101,7 +115,7 @@ export default function CompareTools() {
   const swapJson = () => {
     setJsonA(jsonB);
     setJsonB(jsonA);
-    setJsonDiffLines([]);
+    setJsonRows([]);
     setJsonDiffCount(0);
     setJsonError(null);
     setJsonCompared(false);
@@ -110,7 +124,7 @@ export default function CompareTools() {
   const clearJson = () => {
     setJsonA("");
     setJsonB("");
-    setJsonDiffLines([]);
+    setJsonRows([]);
     setJsonDiffCount(0);
     setJsonError(null);
     setJsonCompared(false);
@@ -182,7 +196,7 @@ export default function CompareTools() {
       {activeTab === "json" && (
         <ComparePanel
           title="JSON Compare"
-          description="Paste two JSON payloads to see a visual diff of structure and values."
+          description="Paste two JSON payloads to see a side-by-side visual diff."
           leftLabel="JSON A"
           rightLabel="JSON B"
           leftValue={jsonA}
@@ -194,7 +208,7 @@ export default function CompareTools() {
           onClear={clearJson}
           diffContent={
             <JsonDiffView
-              lines={jsonDiffLines}
+              rows={jsonRows}
               diffCount={jsonDiffCount}
               error={jsonError}
               compared={jsonCompared}
@@ -313,15 +327,15 @@ function ComparePanel({
   );
 }
 
-// ─── JSON visual diff view ────────────────────────────────────────────────────
+// ─── JSON side-by-side diff view ─────────────────────────────────────────────
 
 function JsonDiffView({
-  lines,
+  rows,
   diffCount,
   error,
   compared,
 }: {
-  lines: DiffLine[];
+  rows: SideBySideRow[];
   diffCount: number;
   error: string | null;
   compared: boolean;
@@ -348,74 +362,73 @@ function JsonDiffView({
 
   return (
     <div className="space-y-3">
-      {/* Summary */}
-      <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-500">
-        <AlertTriangle className="h-4 w-4" />
-        <span>
-          {diffCount} {diffCount === 1 ? "difference" : "differences"}
-        </span>
-      </div>
-
-      {/* Legend */}
-      <div className="flex gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm bg-red-200 dark:bg-red-900/60" />
-          Removed (A)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/60" />
-          Added (B)
-        </span>
-      </div>
-
-      {/* Diff tree */}
-      <div className="overflow-auto rounded-lg border bg-card font-mono text-sm">
-        <div className="min-w-max">
-          {lines.map((line, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex items-start leading-6",
-                line.status === "added" && "bg-emerald-50 dark:bg-emerald-950/40",
-                line.status === "removed" && "bg-red-50 dark:bg-red-950/40",
-              )}
-            >
-              {/* Gutter */}
-              <span
-                className={cn(
-                  "w-8 shrink-0 select-none border-r py-0.5 text-center text-xs",
-                  line.status === "added" &&
-                    "border-emerald-200 bg-emerald-100 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/60",
-                  line.status === "removed" &&
-                    "border-red-200 bg-red-100 text-red-600 dark:border-red-800 dark:bg-red-950/60",
-                  line.status === "same" && "border-border text-transparent",
-                )}
-              >
-                {line.status === "added" ? "+" : line.status === "removed" ? "\u2212" : " "}
-              </span>
-
-              {/* Content */}
-              <span
-                className="py-0.5"
-                style={{ paddingLeft: `calc(0.75rem + ${line.indent * 1.25}rem)` }}
-              >
-                {line.keyPart && (
-                  <span className="text-blue-600 dark:text-blue-400">{line.keyPart}</span>
-                )}
-                <span
-                  className={cn(
-                    line.status === "added" && "text-emerald-700 dark:text-emerald-300",
-                    line.status === "removed" && "text-red-700 dark:text-red-300",
-                    line.status === "same" && "text-foreground",
-                  )}
-                >
-                  {line.valuePart}
-                </span>
-              </span>
-            </div>
-          ))}
+      {/* Summary + legend */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-500">
+          <AlertTriangle className="h-4 w-4" />
+          <span>{diffCount} {diffCount === 1 ? "difference" : "differences"}</span>
+        </div>
+        <div className="flex gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm bg-red-200 dark:bg-red-900/60" />
+            JSON A (removed)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/60" />
+            JSON B (added)
+          </span>
         </div>
       </div>
+
+      {/* Side-by-side grid */}
+      <div className="overflow-auto rounded-lg border bg-card font-mono text-sm">
+        {/* Column headers */}
+        <div className="grid grid-cols-2 border-b bg-muted/40 text-xs font-medium text-muted-foreground">
+          <div className="px-3 py-1.5 border-r">JSON A</div>
+          <div className="px-3 py-1.5">JSON B</div>
+        </div>
+
+        {/* Rows */}
+        {rows.map((row, i) => (
+          <div key={i} className="grid grid-cols-2 border-b border-border/40 last:border-0">
+            <DiffCell cell={row.left} side="left" />
+            <DiffCell cell={row.right} side="right" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DiffCell({ cell, side }: { cell: SideBySideCell; side: "left" | "right" }) {
+  const isLeft = side === "left";
+  return (
+    <div
+      className={cn(
+        "min-h-[1.5rem] py-0.5 leading-6",
+        isLeft && "border-r border-border/40",
+        cell.highlight === "removed" && "bg-red-50 dark:bg-red-950/40",
+        cell.highlight === "added" && "bg-emerald-50 dark:bg-emerald-950/40",
+        cell.highlight === "empty" && "bg-muted/30",
+      )}
+      style={{ paddingLeft: `calc(0.75rem + ${cell.indent * 1.25}rem)`, paddingRight: "0.75rem" }}
+    >
+      {cell.highlight === "empty" ? null : (
+        <>
+          {cell.keyPart && (
+            <span className="text-blue-600 dark:text-blue-400">{cell.keyPart}</span>
+          )}
+          <span
+            className={cn(
+              cell.highlight === "removed" && "text-red-700 dark:text-red-300",
+              cell.highlight === "added" && "text-emerald-700 dark:text-emerald-300",
+              cell.highlight === "none" && "text-foreground",
+            )}
+          >
+            {cell.valuePart}
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -509,7 +522,7 @@ function getType(value: unknown): "object" | "array" | "null" | "primitive" {
   return "primitive";
 }
 
-/** Count logical differences (leaf-level changes, additions, removals). */
+/** Count leaf-level differences recursively. */
 function countJsonDiff(left: unknown, right: unknown): number {
   if (JSON.stringify(left) === JSON.stringify(right)) return 0;
 
@@ -524,11 +537,8 @@ function countJsonDiff(left: unknown, right: unknown): number {
     const maxLen = Math.max(leftArr.length, rightArr.length);
     let count = 0;
     for (let i = 0; i < maxLen; i++) {
-      if (i >= leftArr.length || i >= rightArr.length) {
-        count += 1;
-      } else {
-        count += countJsonDiff(leftArr[i], rightArr[i]);
-      }
+      if (i >= leftArr.length || i >= rightArr.length) count += 1;
+      else count += countJsonDiff(leftArr[i], rightArr[i]);
     }
     return count;
   }
@@ -539,11 +549,8 @@ function countJsonDiff(left: unknown, right: unknown): number {
     const keys = new Set([...Object.keys(leftObj), ...Object.keys(rightObj)]);
     let count = 0;
     keys.forEach((key) => {
-      if (!(key in leftObj) || !(key in rightObj)) {
-        count += 1;
-      } else {
-        count += countJsonDiff(leftObj[key], rightObj[key]);
-      }
+      if (!(key in leftObj) || !(key in rightObj)) count += 1;
+      else count += countJsonDiff(leftObj[key], rightObj[key]);
     });
     return count;
   }
@@ -551,120 +558,164 @@ function countJsonDiff(left: unknown, right: unknown): number {
   return 1;
 }
 
-/** Render any JSON value as DiffLines with a fixed status (for added/removed subtrees). */
-function renderValue(
+/**
+ * Render a single JSON value as a flat list of DiffLines (used internally
+ * to expand one side of a changed/added/removed subtree).
+ */
+function renderLines(
   value: unknown,
   indent: number,
   keyName: string | null,
   isLast: boolean,
-  status: "same" | "added" | "removed",
-  lines: DiffLine[],
+  out: DiffLine[],
 ): void {
   const type = getType(value);
   const keyPart = keyName !== null ? `"${keyName}": ` : "";
   const trail = isLast ? "" : ",";
 
   if (type === "null") {
-    lines.push({ indent, keyPart, valuePart: "null" + trail, status });
+    out.push({ indent, keyPart, valuePart: "null" + trail });
     return;
   }
-
   if (type === "primitive") {
-    lines.push({ indent, keyPart, valuePart: JSON.stringify(value) + trail, status });
+    out.push({ indent, keyPart, valuePart: JSON.stringify(value) + trail });
     return;
   }
-
   if (type === "array") {
     const arr = value as unknown[];
-    if (arr.length === 0) {
-      lines.push({ indent, keyPart, valuePart: "[]" + trail, status });
-      return;
-    }
-    lines.push({ indent, keyPart, valuePart: "[", status });
-    arr.forEach((item, i) => {
-      renderValue(item, indent + 1, null, i === arr.length - 1, status, lines);
-    });
-    lines.push({ indent, keyPart: "", valuePart: "]" + trail, status });
+    if (arr.length === 0) { out.push({ indent, keyPart, valuePart: "[]" + trail }); return; }
+    out.push({ indent, keyPart, valuePart: "[" });
+    arr.forEach((item, i) => renderLines(item, indent + 1, null, i === arr.length - 1, out));
+    out.push({ indent, keyPart: "", valuePart: "]" + trail });
     return;
   }
-
   const obj = value as Record<string, unknown>;
   const keys = Object.keys(obj);
-  if (keys.length === 0) {
-    lines.push({ indent, keyPart, valuePart: "{}" + trail, status });
-    return;
-  }
-  lines.push({ indent, keyPart, valuePart: "{", status });
-  keys.forEach((key, i) => {
-    renderValue(obj[key], indent + 1, key, i === keys.length - 1, status, lines);
-  });
-  lines.push({ indent, keyPart: "", valuePart: "}" + trail, status });
+  if (keys.length === 0) { out.push({ indent, keyPart, valuePart: "{}" + trail }); return; }
+  out.push({ indent, keyPart, valuePart: "{" });
+  keys.forEach((key, i) => renderLines(obj[key], indent + 1, key, i === keys.length - 1, out));
+  out.push({ indent, keyPart: "", valuePart: "}" + trail });
 }
 
-/** Recursively build a git-diff-style list of DiffLines from two JSON values. */
-function buildDiffLines(
+/** Convert a flat DiffLine list into same-highlight SideBySideCells on one side, empty on the other. */
+function linesToRows(
+  lines: DiffLine[],
+  highlight: "removed" | "added",
+  side: "left" | "right",
+): SideBySideRow[] {
+  const empty: SideBySideCell = { indent: 0, keyPart: "", valuePart: "", highlight: "empty" };
+  return lines.map((line) => {
+    const cell: SideBySideCell = { indent: line.indent, keyPart: line.keyPart, valuePart: line.valuePart, highlight };
+    return side === "left"
+      ? { left: cell, right: empty }
+      : { left: empty, right: cell };
+  });
+}
+
+/**
+ * Recursively build side-by-side rows by comparing two JSON values.
+ * Identical subtrees produce rows where both sides are identical (highlight "none").
+ * Changed subtrees produce rows where the left side is highlighted "removed"
+ * and the right side is highlighted "added".
+ */
+function buildSideBySideRows(
   left: unknown,
   right: unknown,
   indent: number,
   keyName: string | null,
   isLast: boolean,
-  lines: DiffLine[],
+  rows: SideBySideRow[],
 ): void {
   const keyPart = keyName !== null ? `"${keyName}": ` : "";
   const trail = isLast ? "" : ",";
 
+  // Identical subtree — context rows, both sides same
   if (JSON.stringify(left) === JSON.stringify(right)) {
-    renderValue(left, indent, keyName, isLast, "same", lines);
+    const lines: DiffLine[] = [];
+    renderLines(left, indent, keyName, isLast, lines);
+    lines.forEach((line) => {
+      const cell: SideBySideCell = { indent: line.indent, keyPart: line.keyPart, valuePart: line.valuePart, highlight: "none" };
+      rows.push({ left: cell, right: { ...cell } });
+    });
     return;
   }
 
   const leftType = getType(left);
   const rightType = getType(right);
 
+  // Type mismatch or primitive change — pair left lines (removed) with right lines (added)
   if (leftType !== rightType || leftType === "primitive" || leftType === "null") {
-    renderValue(left, indent, keyName, isLast, "removed", lines);
-    renderValue(right, indent, keyName, isLast, "added", lines);
+    const leftLines: DiffLine[] = [];
+    const rightLines: DiffLine[] = [];
+    renderLines(left, indent, keyName, isLast, leftLines);
+    renderLines(right, indent, keyName, isLast, rightLines);
+    const maxLen = Math.max(leftLines.length, rightLines.length);
+    const emptyCell: SideBySideCell = { indent, keyPart: "", valuePart: "", highlight: "empty" };
+    for (let i = 0; i < maxLen; i++) {
+      const l = leftLines[i];
+      const r = rightLines[i];
+      rows.push({
+        left: l ? { indent: l.indent, keyPart: l.keyPart, valuePart: l.valuePart, highlight: "removed" } : emptyCell,
+        right: r ? { indent: r.indent, keyPart: r.keyPart, valuePart: r.valuePart, highlight: "added" } : emptyCell,
+      });
+    }
     return;
   }
 
+  // Both objects — recurse per key
   if (leftType === "object") {
     const leftObj = left as Record<string, unknown>;
     const rightObj = right as Record<string, unknown>;
-    const allKeys = Array.from(
-      new Set([...Object.keys(leftObj), ...Object.keys(rightObj)]),
-    );
+    const allKeys = Array.from(new Set([...Object.keys(leftObj), ...Object.keys(rightObj)]));
 
-    lines.push({ indent, keyPart, valuePart: "{", status: "same" });
+    const openCell: SideBySideCell = { indent, keyPart, valuePart: "{", highlight: "none" };
+    rows.push({ left: openCell, right: { ...openCell } });
+
     allKeys.forEach((key, i) => {
       const isLastKey = i === allKeys.length - 1;
       if (!(key in leftObj)) {
-        renderValue(rightObj[key], indent + 1, key, isLastKey, "added", lines);
+        const addedLines: DiffLine[] = [];
+        renderLines(rightObj[key], indent + 1, key, isLastKey, addedLines);
+        rows.push(...linesToRows(addedLines, "added", "right"));
       } else if (!(key in rightObj)) {
-        renderValue(leftObj[key], indent + 1, key, isLastKey, "removed", lines);
+        const removedLines: DiffLine[] = [];
+        renderLines(leftObj[key], indent + 1, key, isLastKey, removedLines);
+        rows.push(...linesToRows(removedLines, "removed", "left"));
       } else {
-        buildDiffLines(leftObj[key], rightObj[key], indent + 1, key, isLastKey, lines);
+        buildSideBySideRows(leftObj[key], rightObj[key], indent + 1, key, isLastKey, rows);
       }
     });
-    lines.push({ indent, keyPart: "", valuePart: "}" + trail, status: "same" });
+
+    const closeCell: SideBySideCell = { indent, keyPart: "", valuePart: "}" + trail, highlight: "none" };
+    rows.push({ left: closeCell, right: { ...closeCell } });
     return;
   }
 
+  // Both arrays — recurse per index
   const leftArr = left as unknown[];
   const rightArr = right as unknown[];
   const maxLen = Math.max(leftArr.length, rightArr.length);
 
-  lines.push({ indent, keyPart, valuePart: "[", status: "same" });
+  const openCell: SideBySideCell = { indent, keyPart, valuePart: "[", highlight: "none" };
+  rows.push({ left: openCell, right: { ...openCell } });
+
   for (let i = 0; i < maxLen; i++) {
     const isLastItem = i === maxLen - 1;
     if (i >= leftArr.length) {
-      renderValue(rightArr[i], indent + 1, null, isLastItem, "added", lines);
+      const addedLines: DiffLine[] = [];
+      renderLines(rightArr[i], indent + 1, null, isLastItem, addedLines);
+      rows.push(...linesToRows(addedLines, "added", "right"));
     } else if (i >= rightArr.length) {
-      renderValue(leftArr[i], indent + 1, null, isLastItem, "removed", lines);
+      const removedLines: DiffLine[] = [];
+      renderLines(leftArr[i], indent + 1, null, isLastItem, removedLines);
+      rows.push(...linesToRows(removedLines, "removed", "left"));
     } else {
-      buildDiffLines(leftArr[i], rightArr[i], indent + 1, null, isLastItem, lines);
+      buildSideBySideRows(leftArr[i], rightArr[i], indent + 1, null, isLastItem, rows);
     }
   }
-  lines.push({ indent, keyPart: "", valuePart: "]" + trail, status: "same" });
+
+  const closeCell: SideBySideCell = { indent, keyPart: "", valuePart: "]" + trail, highlight: "none" };
+  rows.push({ left: closeCell, right: { ...closeCell } });
 }
 
 // ─── cURL helpers ─────────────────────────────────────────────────────────────
