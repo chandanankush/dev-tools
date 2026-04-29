@@ -43,15 +43,16 @@ describe("EditorPad", () => {
   it("renders the notes sidebar and a default note", () => {
     render(<EditorPad />);
     expect(screen.getByTitle("New note")).toBeInTheDocument();
-    // default note is created and selected
-    expect(screen.getAllByText("Untitled").length).toBeGreaterThan(0);
+    // default note title uses DD-MM-YY HH:MM:SS format
+    const noteTitles = screen.getAllByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    expect(noteTitles.length).toBeGreaterThan(0);
   });
 
   it("creates a new note when + is clicked", () => {
     render(<EditorPad />);
-    const before = screen.getAllByText("Untitled").length;
+    const before = screen.getAllByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/).length;
     fireEvent.click(screen.getByTitle("New note"));
-    expect(screen.getAllByText("Untitled").length).toBeGreaterThan(before);
+    expect(screen.getAllByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/).length).toBeGreaterThan(before);
   });
 
   it("deletes a note when trash icon is clicked", () => {
@@ -168,10 +169,12 @@ describe("EditorPad", () => {
 
   it("inline rename: double-click shows input; Enter commits", () => {
     render(<EditorPad />);
-    const titleEl = screen.getByText("Untitled");
+    // Note title is a timestamp string matching DD-MM-YY HH:MM:SS
+    const titleEl = screen.getByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    const originalTitle = titleEl.textContent!;
     fireEvent.doubleClick(titleEl);
 
-    const input = screen.getByDisplayValue("Untitled");
+    const input = screen.getByDisplayValue(originalTitle);
     fireEvent.change(input, { target: { value: "My Note" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
@@ -180,14 +183,16 @@ describe("EditorPad", () => {
 
   it("inline rename: Escape cancels without saving", () => {
     render(<EditorPad />);
-    fireEvent.doubleClick(screen.getByText("Untitled"));
+    const titleEl = screen.getByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    const originalTitle = titleEl.textContent!;
+    fireEvent.doubleClick(titleEl);
 
-    const input = screen.getByDisplayValue("Untitled");
+    const input = screen.getByDisplayValue(originalTitle);
     fireEvent.change(input, { target: { value: "Changed" } });
     fireEvent.keyDown(input, { key: "Escape" });
 
-    // Title should still be "Untitled"
-    expect(screen.getByText("Untitled")).toBeInTheDocument();
+    // Title should revert to original timestamp
+    expect(screen.getByText(originalTitle)).toBeInTheDocument();
     expect(screen.queryByText("Changed")).not.toBeInTheDocument();
   });
 

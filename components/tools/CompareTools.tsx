@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, ArrowLeftRight, Braces, CheckCircle2, Terminal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type Tab = "json" | "curl";
 
@@ -17,10 +19,20 @@ type CurlParsed = {
   body: string | null;
 };
 
-type DiffItem = {
-  path: string;
-  message: string;
+type CurlDiffResult = {
+  field: string;
+  leftValue: string | null;
+  rightValue: string | null;
 };
+
+type DiffLine = {
+  indent: number;
+  keyPart: string;
+  valuePart: string;
+  status: "same" | "added" | "removed";
+};
+
+// ─── Sample data ──────────────────────────────────────────────────────────────
 
 const jsonSampleA = `{
   "name": "Service A",
@@ -36,51 +48,75 @@ const jsonSampleB = `{
   "limits": { "requestsPerMinute": 200 }
 }`;
 
-const curlSampleA = `curl -X POST https://api.example.com/v1/users \\
-  -H "Authorization: Bearer token-a" \\
-  -H "Content-Type: application/json" \\
+const curlSampleA = `curl -X POST https://api.example.com/v1/users \
+  -H "Authorization: Bearer token-a" \
+  -H "Content-Type: application/json" \
   -d '{ "name": "Ada", "email": "ada@example.com" }'`;
 
-const curlSampleB = `curl https://api.example.com/v1/users \\
-  -H "Authorization: Bearer token-b" \\
-  -H "Content-Type: application/json" \\
+const curlSampleB = `curl https://api.example.com/v1/users \
+  -H "Authorization: Bearer token-b" \
+  -H "Content-Type: application/json" \
   --data '{ "name": "Ada", "email": "ada@example.com", "role": "admin" }'`;
+
+// ─── Root component ───────────────────────────────────────────────────────────
 
 export default function CompareTools() {
   const [activeTab, setActiveTab] = useState<Tab>("json");
 
+  // JSON state
   const [jsonA, setJsonA] = useState(jsonSampleA);
   const [jsonB, setJsonB] = useState(jsonSampleB);
-  const [jsonDiff, setJsonDiff] = useState<DiffItem[]>([]);
+  const [jsonDiffLines, setJsonDiffLines] = useState<DiffLine[]>([]);
+  const [jsonDiffCount, setJsonDiffCount] = useState(0);
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [jsonCompared, setJsonCompared] = useState(false);
 
+  // cURL state
   const [curlA, setCurlA] = useState(curlSampleA);
   const [curlB, setCurlB] = useState(curlSampleB);
-  const [curlDiff, setCurlDiff] = useState<DiffItem[]>([]);
+  const [curlDiff, setCurlDiff] = useState<CurlDiffResult[]>([]);
   const [curlError, setCurlError] = useState<string | null>(null);
+  const [curlCompared, setCurlCompared] = useState(false);
 
-  const jsonSummary = useMemo(() => {
-    if (jsonError) return "Invalid JSON";
-    return jsonDiff.length === 0 ? "JSON match" : `${jsonDiff.length} difference${jsonDiff.length === 1 ? "" : "s"}`;
-  }, [jsonDiff.length, jsonError]);
-
-  const curlSummary = useMemo(() => {
-    if (curlError) return "Unable to parse cURL";
-    return curlDiff.length === 0 ? "Commands match" : `${curlDiff.length} difference${curlDiff.length === 1 ? "" : "s"}`;
-  }, [curlDiff.length, curlError]);
+  // ─── JSON handlers ────────────────────────────────────────────────────────
 
   const handleJsonCompare = () => {
     try {
       const left = JSON.parse(jsonA);
       const right = JSON.parse(jsonB);
-      const diff = diffJson(left, right);
-      setJsonDiff(diff);
+      const lines: DiffLine[] = [];
+      buildDiffLines(left, right, 0, null, true, lines);
+      const count = countJsonDiff(left, right);
+      setJsonDiffLines(lines);
+      setJsonDiffCount(count);
       setJsonError(null);
     } catch (error) {
       setJsonError((error as Error).message || "Invalid JSON input.");
-      setJsonDiff([]);
+      setJsonDiffLines([]);
+      setJsonDiffCount(0);
     }
+    setJsonCompared(true);
   };
+
+  const swapJson = () => {
+    setJsonA(jsonB);
+    setJsonB(jsonA);
+    setJsonDiffLines([]);
+    setJsonDiffCount(0);
+    setJsonError(null);
+    setJsonCompared(false);
+  };
+
+  const clearJson = () => {
+    setJsonA("");
+    setJsonB("");
+    setJsonDiffLines([]);
+    setJsonDiffCount(0);
+    setJsonError(null);
+    setJsonCompared(false);
+  };
+
+  // ─── cURL handlers ────────────────────────────────────────────────────────
 
   const handleCurlCompare = () => {
     try {
@@ -93,13 +129,7 @@ export default function CompareTools() {
       setCurlError((error as Error).message || "Unable to parse cURL commands.");
       setCurlDiff([]);
     }
-  };
-
-  const swapJson = () => {
-    setJsonA(jsonB);
-    setJsonB(jsonA);
-    setJsonDiff([]);
-    setJsonError(null);
+    setCurlCompared(true);
   };
 
   const swapCurl = () => {
@@ -107,13 +137,7 @@ export default function CompareTools() {
     setCurlB(curlA);
     setCurlDiff([]);
     setCurlError(null);
-  };
-
-  const clearJson = () => {
-    setJsonA("");
-    setJsonB("");
-    setJsonDiff([]);
-    setJsonError(null);
+    setCurlCompared(false);
   };
 
   const clearCurl = () => {
@@ -121,10 +145,12 @@ export default function CompareTools() {
     setCurlB("");
     setCurlDiff([]);
     setCurlError(null);
+    setCurlCompared(false);
   };
 
   return (
     <div className="space-y-6">
+      {/* Tab bar */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2 shadow-sm">
         <button
           onClick={() => setActiveTab("json")}
@@ -132,7 +158,7 @@ export default function CompareTools() {
             "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
             activeTab === "json"
               ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
           <Braces className="h-4 w-4" />
@@ -144,7 +170,7 @@ export default function CompareTools() {
             "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
             activeTab === "curl"
               ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
           <Terminal className="h-4 w-4" />
@@ -152,24 +178,33 @@ export default function CompareTools() {
         </button>
       </div>
 
-      {activeTab === "json" ? (
+      {/* JSON panel */}
+      {activeTab === "json" && (
         <ComparePanel
           title="JSON Compare"
-          description="Paste two JSON payloads to see structure and value differences."
+          description="Paste two JSON payloads to see a visual diff of structure and values."
           leftLabel="JSON A"
           rightLabel="JSON B"
           leftValue={jsonA}
           rightValue={jsonB}
-          onLeftChange={setJsonA}
-          onRightChange={setJsonB}
+          onLeftChange={(v) => { setJsonA(v); setJsonCompared(false); }}
+          onRightChange={(v) => { setJsonB(v); setJsonCompared(false); }}
           onCompare={handleJsonCompare}
           onSwap={swapJson}
           onClear={clearJson}
-          diff={jsonDiff}
-          error={jsonError}
-          summary={jsonSummary}
+          diffContent={
+            <JsonDiffView
+              lines={jsonDiffLines}
+              diffCount={jsonDiffCount}
+              error={jsonError}
+              compared={jsonCompared}
+            />
+          }
         />
-      ) : (
+      )}
+
+      {/* cURL panel */}
+      {activeTab === "curl" && (
         <ComparePanel
           title="cURL Compare"
           description="Compare two curl commands by method, URL, headers, and body."
@@ -177,19 +212,25 @@ export default function CompareTools() {
           rightLabel="cURL B"
           leftValue={curlA}
           rightValue={curlB}
-          onLeftChange={setCurlA}
-          onRightChange={setCurlB}
+          onLeftChange={(v) => { setCurlA(v); setCurlCompared(false); }}
+          onRightChange={(v) => { setCurlB(v); setCurlCompared(false); }}
           onCompare={handleCurlCompare}
           onSwap={swapCurl}
           onClear={clearCurl}
-          diff={curlDiff}
-          error={curlError}
-          summary={curlSummary}
+          diffContent={
+            <CurlDiffView
+              diff={curlDiff}
+              error={curlError}
+              compared={curlCompared}
+            />
+          }
         />
       )}
     </div>
   );
 }
+
+// ─── ComparePanel shell ───────────────────────────────────────────────────────
 
 interface ComparePanelProps {
   title: string;
@@ -203,9 +244,7 @@ interface ComparePanelProps {
   onCompare: () => void;
   onSwap: () => void;
   onClear: () => void;
-  diff: DiffItem[];
-  error: string | null;
-  summary: string;
+  diffContent: React.ReactNode;
 }
 
 function ComparePanel({
@@ -220,12 +259,11 @@ function ComparePanel({
   onCompare,
   onSwap,
   onClear,
-  diff,
-  error,
-  summary,
+  diffContent,
 }: ComparePanelProps) {
   return (
     <div className="space-y-4 rounded-xl border bg-card shadow-sm">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
         <div>
           <p className="text-sm font-semibold text-card-foreground">{title}</p>
@@ -245,12 +283,13 @@ function ComparePanel({
         </div>
       </div>
 
+      {/* Input textareas */}
       <div className="grid gap-4 p-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>{leftLabel}</Label>
           <Textarea
             value={leftValue}
-            onChange={(event) => onLeftChange(event.target.value)}
+            onChange={(e) => onLeftChange(e.target.value)}
             className="min-h-[260px] font-mono text-sm"
             spellCheck={false}
           />
@@ -259,105 +298,209 @@ function ComparePanel({
           <Label>{rightLabel}</Label>
           <Textarea
             value={rightValue}
-            onChange={(event) => onRightChange(event.target.value)}
+            onChange={(e) => onRightChange(e.target.value)}
             className="min-h-[260px] font-mono text-sm"
             spellCheck={false}
           />
         </div>
       </div>
 
-      <div className="border-t bg-muted/40 p-4">
-        {error ? (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : diff.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-emerald-600">
-            <CheckCircle2 className="h-4 w-4" />
-            <span>{summary}</span>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-amber-700">
-              <AlertTriangle className="h-4 w-4" />
-              <span>{summary}</span>
+      {/* Diff output */}
+      {diffContent && (
+        <div className="border-t bg-muted/20 p-4">{diffContent}</div>
+      )}
+    </div>
+  );
+}
+
+// ─── JSON visual diff view ────────────────────────────────────────────────────
+
+function JsonDiffView({
+  lines,
+  diffCount,
+  error,
+  compared,
+}: {
+  lines: DiffLine[];
+  diffCount: number;
+  error: string | null;
+  compared: boolean;
+}) {
+  if (!compared) return null;
+
+  if (error) {
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0" />
+        <span>{error}</span>
+      </div>
+    );
+  }
+
+  if (diffCount === 0) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-emerald-600">
+        <CheckCircle2 className="h-4 w-4" />
+        <span>JSON match</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Summary */}
+      <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-500">
+        <AlertTriangle className="h-4 w-4" />
+        <span>
+          {diffCount} {diffCount === 1 ? "difference" : "differences"}
+        </span>
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-sm bg-red-200 dark:bg-red-900/60" />
+          Removed (A)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/60" />
+          Added (B)
+        </span>
+      </div>
+
+      {/* Diff tree */}
+      <div className="overflow-auto rounded-lg border bg-card font-mono text-sm">
+        <div className="min-w-max">
+          {lines.map((line, i) => (
+            <div
+              key={i}
+              className={cn(
+                "flex items-start leading-6",
+                line.status === "added" && "bg-emerald-50 dark:bg-emerald-950/40",
+                line.status === "removed" && "bg-red-50 dark:bg-red-950/40",
+              )}
+            >
+              {/* Gutter */}
+              <span
+                className={cn(
+                  "w-8 shrink-0 select-none border-r py-0.5 text-center text-xs",
+                  line.status === "added" &&
+                    "border-emerald-200 bg-emerald-100 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/60",
+                  line.status === "removed" &&
+                    "border-red-200 bg-red-100 text-red-600 dark:border-red-800 dark:bg-red-950/60",
+                  line.status === "same" && "border-border text-transparent",
+                )}
+              >
+                {line.status === "added" ? "+" : line.status === "removed" ? "\u2212" : " "}
+              </span>
+
+              {/* Content */}
+              <span
+                className="py-0.5"
+                style={{ paddingLeft: `calc(0.75rem + ${line.indent * 1.25}rem)` }}
+              >
+                {line.keyPart && (
+                  <span className="text-blue-600 dark:text-blue-400">{line.keyPart}</span>
+                )}
+                <span
+                  className={cn(
+                    line.status === "added" && "text-emerald-700 dark:text-emerald-300",
+                    line.status === "removed" && "text-red-700 dark:text-red-300",
+                    line.status === "same" && "text-foreground",
+                  )}
+                >
+                  {line.valuePart}
+                </span>
+              </span>
             </div>
-            <ul className="space-y-1 text-sm text-card-foreground">
-              {diff.map((item) => (
-                <li key={`${item.path}-${item.message}`} className="rounded-md bg-background/80 px-3 py-2">
-                  <span className="font-semibold text-muted-foreground">{item.path}:</span>{" "}
-                  <span>{item.message}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function diffJson(left: unknown, right: unknown, path = "root"): DiffItem[] {
-  const differences: DiffItem[] = [];
+// ─── cURL visual diff view ────────────────────────────────────────────────────
 
-  if (left === right) {
-    return differences;
+function CurlDiffView({
+  diff,
+  error,
+  compared,
+}: {
+  diff: CurlDiffResult[];
+  error: string | null;
+  compared: boolean;
+}) {
+  if (!compared) return null;
+
+  if (error) {
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0" />
+        <span>{error}</span>
+      </div>
+    );
   }
 
-  const leftType = getType(left);
-  const rightType = getType(right);
-
-  if (leftType !== rightType) {
-    differences.push({
-      path,
-      message: `Type mismatch (${leftType} vs ${rightType})`,
-    });
-    return differences;
+  if (diff.length === 0) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-emerald-600">
+        <CheckCircle2 className="h-4 w-4" />
+        <span>Commands match</span>
+      </div>
+    );
   }
 
-  if (leftType === "array") {
-    const maxLength = Math.max((left as unknown[]).length, (right as unknown[]).length);
-    for (let i = 0; i < maxLength; i += 1) {
-      const lVal = (left as unknown[])[i];
-      const rVal = (right as unknown[])[i];
-      const nextPath = `${path}[${i}]`;
-      if (i >= (left as unknown[]).length) {
-        differences.push({ path: nextPath, message: "Missing on the left" });
-      } else if (i >= (right as unknown[]).length) {
-        differences.push({ path: nextPath, message: "Missing on the right" });
-      } else {
-        differences.push(...diffJson(lVal, rVal, nextPath));
-      }
-    }
-    return differences;
-  }
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-500">
+        <AlertTriangle className="h-4 w-4" />
+        <span>
+          {diff.length} {diff.length === 1 ? "difference" : "differences"}
+        </span>
+      </div>
 
-  if (leftType === "object") {
-    const keys = new Set([...Object.keys(left as Record<string, unknown>), ...Object.keys(right as Record<string, unknown>)]);
-    keys.forEach((key) => {
-      const lVal = (left as Record<string, unknown>)[key];
-      const rVal = (right as Record<string, unknown>)[key];
-      const nextPath = `${path}.${key}`;
-      if (!(key in (left as Record<string, unknown>))) {
-        differences.push({ path: nextPath, message: "Missing on the left" });
-      } else if (!(key in (right as Record<string, unknown>))) {
-        differences.push({ path: nextPath, message: "Missing on the right" });
-      } else {
-        differences.push(...diffJson(lVal, rVal, nextPath));
-      }
-    });
-    return differences;
-  }
-
-  // Primitive mismatch at this point.
-  differences.push({
-    path,
-    message: `Value mismatch (${JSON.stringify(left)} vs ${JSON.stringify(right)})`,
-  });
-
-  return differences;
+      <div className="overflow-auto rounded-lg border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
+              <th className="px-3 py-2 text-left font-medium">Field</th>
+              <th className="px-3 py-2 text-left font-medium">cURL A</th>
+              <th className="px-3 py-2 text-left font-medium">cURL B</th>
+            </tr>
+          </thead>
+          <tbody>
+            {diff.map((item) => (
+              <tr key={item.field} className="border-t">
+                <td className="px-3 py-2 font-medium text-muted-foreground">{item.field}</td>
+                <td className="px-3 py-2">
+                  {item.leftValue === null ? (
+                    <span className="italic text-muted-foreground">&mdash;</span>
+                  ) : (
+                    <span className="rounded bg-red-50 px-1.5 py-0.5 font-mono text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                      {item.leftValue}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {item.rightValue === null ? (
+                    <span className="italic text-muted-foreground">&mdash;</span>
+                  ) : (
+                    <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                      {item.rightValue}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
+
+// ─── JSON diff helpers ────────────────────────────────────────────────────────
 
 function getType(value: unknown): "object" | "array" | "null" | "primitive" {
   if (value === null) return "null";
@@ -365,6 +508,166 @@ function getType(value: unknown): "object" | "array" | "null" | "primitive" {
   if (typeof value === "object") return "object";
   return "primitive";
 }
+
+/** Count logical differences (leaf-level changes, additions, removals). */
+function countJsonDiff(left: unknown, right: unknown): number {
+  if (JSON.stringify(left) === JSON.stringify(right)) return 0;
+
+  const leftType = getType(left);
+  const rightType = getType(right);
+
+  if (leftType !== rightType) return 1;
+
+  if (leftType === "array") {
+    const leftArr = left as unknown[];
+    const rightArr = right as unknown[];
+    const maxLen = Math.max(leftArr.length, rightArr.length);
+    let count = 0;
+    for (let i = 0; i < maxLen; i++) {
+      if (i >= leftArr.length || i >= rightArr.length) {
+        count += 1;
+      } else {
+        count += countJsonDiff(leftArr[i], rightArr[i]);
+      }
+    }
+    return count;
+  }
+
+  if (leftType === "object") {
+    const leftObj = left as Record<string, unknown>;
+    const rightObj = right as Record<string, unknown>;
+    const keys = new Set([...Object.keys(leftObj), ...Object.keys(rightObj)]);
+    let count = 0;
+    keys.forEach((key) => {
+      if (!(key in leftObj) || !(key in rightObj)) {
+        count += 1;
+      } else {
+        count += countJsonDiff(leftObj[key], rightObj[key]);
+      }
+    });
+    return count;
+  }
+
+  return 1;
+}
+
+/** Render any JSON value as DiffLines with a fixed status (for added/removed subtrees). */
+function renderValue(
+  value: unknown,
+  indent: number,
+  keyName: string | null,
+  isLast: boolean,
+  status: "same" | "added" | "removed",
+  lines: DiffLine[],
+): void {
+  const type = getType(value);
+  const keyPart = keyName !== null ? `"${keyName}": ` : "";
+  const trail = isLast ? "" : ",";
+
+  if (type === "null") {
+    lines.push({ indent, keyPart, valuePart: "null" + trail, status });
+    return;
+  }
+
+  if (type === "primitive") {
+    lines.push({ indent, keyPart, valuePart: JSON.stringify(value) + trail, status });
+    return;
+  }
+
+  if (type === "array") {
+    const arr = value as unknown[];
+    if (arr.length === 0) {
+      lines.push({ indent, keyPart, valuePart: "[]" + trail, status });
+      return;
+    }
+    lines.push({ indent, keyPart, valuePart: "[", status });
+    arr.forEach((item, i) => {
+      renderValue(item, indent + 1, null, i === arr.length - 1, status, lines);
+    });
+    lines.push({ indent, keyPart: "", valuePart: "]" + trail, status });
+    return;
+  }
+
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  if (keys.length === 0) {
+    lines.push({ indent, keyPart, valuePart: "{}" + trail, status });
+    return;
+  }
+  lines.push({ indent, keyPart, valuePart: "{", status });
+  keys.forEach((key, i) => {
+    renderValue(obj[key], indent + 1, key, i === keys.length - 1, status, lines);
+  });
+  lines.push({ indent, keyPart: "", valuePart: "}" + trail, status });
+}
+
+/** Recursively build a git-diff-style list of DiffLines from two JSON values. */
+function buildDiffLines(
+  left: unknown,
+  right: unknown,
+  indent: number,
+  keyName: string | null,
+  isLast: boolean,
+  lines: DiffLine[],
+): void {
+  const keyPart = keyName !== null ? `"${keyName}": ` : "";
+  const trail = isLast ? "" : ",";
+
+  if (JSON.stringify(left) === JSON.stringify(right)) {
+    renderValue(left, indent, keyName, isLast, "same", lines);
+    return;
+  }
+
+  const leftType = getType(left);
+  const rightType = getType(right);
+
+  if (leftType !== rightType || leftType === "primitive" || leftType === "null") {
+    renderValue(left, indent, keyName, isLast, "removed", lines);
+    renderValue(right, indent, keyName, isLast, "added", lines);
+    return;
+  }
+
+  if (leftType === "object") {
+    const leftObj = left as Record<string, unknown>;
+    const rightObj = right as Record<string, unknown>;
+    const allKeys = Array.from(
+      new Set([...Object.keys(leftObj), ...Object.keys(rightObj)]),
+    );
+
+    lines.push({ indent, keyPart, valuePart: "{", status: "same" });
+    allKeys.forEach((key, i) => {
+      const isLastKey = i === allKeys.length - 1;
+      if (!(key in leftObj)) {
+        renderValue(rightObj[key], indent + 1, key, isLastKey, "added", lines);
+      } else if (!(key in rightObj)) {
+        renderValue(leftObj[key], indent + 1, key, isLastKey, "removed", lines);
+      } else {
+        buildDiffLines(leftObj[key], rightObj[key], indent + 1, key, isLastKey, lines);
+      }
+    });
+    lines.push({ indent, keyPart: "", valuePart: "}" + trail, status: "same" });
+    return;
+  }
+
+  const leftArr = left as unknown[];
+  const rightArr = right as unknown[];
+  const maxLen = Math.max(leftArr.length, rightArr.length);
+
+  lines.push({ indent, keyPart, valuePart: "[", status: "same" });
+  for (let i = 0; i < maxLen; i++) {
+    const isLastItem = i === maxLen - 1;
+    if (i >= leftArr.length) {
+      renderValue(rightArr[i], indent + 1, null, isLastItem, "added", lines);
+    } else if (i >= rightArr.length) {
+      renderValue(leftArr[i], indent + 1, null, isLastItem, "removed", lines);
+    } else {
+      buildDiffLines(leftArr[i], rightArr[i], indent + 1, null, isLastItem, lines);
+    }
+  }
+  lines.push({ indent, keyPart: "", valuePart: "]" + trail, status: "same" });
+}
+
+// ─── cURL helpers ─────────────────────────────────────────────────────────────
 
 function parseCurl(command: string): CurlParsed {
   const tokens = tokenize(command);
@@ -411,12 +714,11 @@ function parseCurl(command: string): CurlParsed {
         url = tokens[i + 1] ?? url;
         i += 1;
         break;
-      default: {
+      default:
         if (!token.startsWith("-") && !url) {
           url = token;
         }
         break;
-      }
     }
   }
 
@@ -428,29 +730,18 @@ function parseCurl(command: string): CurlParsed {
     throw new Error("Could not find a URL in the curl command.");
   }
 
-  return {
-    method,
-    url,
-    headers,
-    body,
-  };
+  return { method, url, headers, body };
 }
 
-function diffCurl(left: CurlParsed, right: CurlParsed): DiffItem[] {
-  const differences: DiffItem[] = [];
+function diffCurl(left: CurlParsed, right: CurlParsed): CurlDiffResult[] {
+  const differences: CurlDiffResult[] = [];
 
   if (left.method !== right.method) {
-    differences.push({
-      path: "method",
-      message: `${left.method} vs ${right.method}`,
-    });
+    differences.push({ field: "method", leftValue: left.method, rightValue: right.method });
   }
 
   if (left.url !== right.url) {
-    differences.push({
-      path: "url",
-      message: `${left.url} vs ${right.url}`,
-    });
+    differences.push({ field: "url", leftValue: left.url, rightValue: right.url });
   }
 
   const headerKeys = new Set([...Object.keys(left.headers), ...Object.keys(right.headers)]);
@@ -458,19 +749,18 @@ function diffCurl(left: CurlParsed, right: CurlParsed): DiffItem[] {
     const lVal = left.headers[key];
     const rVal = right.headers[key];
     if (lVal === rVal) return;
-    if (lVal === undefined) {
-      differences.push({ path: `header:${key}`, message: "Missing on the left" });
-    } else if (rVal === undefined) {
-      differences.push({ path: `header:${key}`, message: "Missing on the right" });
-    } else {
-      differences.push({ path: `header:${key}`, message: `${lVal} vs ${rVal}` });
-    }
+    differences.push({
+      field: `header: ${key}`,
+      leftValue: lVal ?? null,
+      rightValue: rVal ?? null,
+    });
   });
 
   if ((left.body ?? "") !== (right.body ?? "")) {
     differences.push({
-      path: "body",
-      message: `${left.body ?? "(empty)"} vs ${right.body ?? "(empty)"}`,
+      field: "body",
+      leftValue: left.body ?? null,
+      rightValue: right.body ?? null,
     });
   }
 
@@ -480,7 +770,7 @@ function diffCurl(left: CurlParsed, right: CurlParsed): DiffItem[] {
 function tokenize(input: string): string[] {
   const cleaned = input.replace(/\\\n/g, " ").trim();
   const tokens: string[] = [];
-  const regex = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|\\S+/g;
+  const regex = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|\S+/g;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(cleaned)) !== null) {
@@ -497,6 +787,6 @@ function tokenize(input: string): string[] {
   return tokens;
 }
 
-function unescapeQuoted(value: string) {
-  return value.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+function unescapeQuoted(value: string): string {
+  return value.replace(/\\([\\"])/g, "$1");
 }
