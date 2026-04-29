@@ -47,12 +47,43 @@ Test file: `tests/tools/json-tools.test.tsx`
 
 Test file: `tests/tools/compare-tools.test.tsx`
 
-- **Compares JSON samples and shows diff summary**
-  - Action: click **Compare** in JSON tab
-  - Expected: difference summary is shown (e.g. `3 differences`)
+**JSON tab**
+- **Visual diff count is shown after compare**
+  - Action: click **Compare** in JSON tab with pre-loaded samples
+  - Expected: `3 differences` badge is shown above the side-by-side diff view
+- **Side-by-side diff renders correct columns**
+  - Expected: column headers show `JSON A` and `JSON B`
+  - Expected: unchanged lines appear in both columns (neutral background)
+  - Expected: changed values appear red in JSON A column, green in JSON B column
+  - Expected: keys present only in B appear green on right, empty/grey on left
+  - Expected: keys present only in A appear red on left, empty/grey on right
+- **Match state shows success icon**
+  - Modify both inputs to be identical JSON
+  - Action: click **Compare**
+  - Expected: green `JSON match` message with checkmark icon
+- **Invalid JSON shows error**
+  - Input: `{ bad json`
+  - Action: click **Compare**
+  - Expected: red error message shown, no diff tree rendered
 - **Clears both JSON inputs**
   - Action: click **Clear**
-  - Expected: both left and right JSON textareas are empty
+  - Expected: both textareas empty, diff view hidden
+- **Swap exchanges the two inputs**
+  - Action: click **Swap**
+  - Expected: JSON A and JSON B contents are exchanged, diff view reset
+
+**cURL tab**
+- **Structured table shows changed fields**
+  - Action: switch to cURL tab, click **Compare** with pre-loaded samples
+  - Expected: differences count shown; table with columns `Field`, `cURL A`, `cURL B`
+  - Expected: differing values highlighted red (A) and green (B)
+  - Expected: missing values shown as `—`
+- **Match state shows success icon**
+  - Input identical curl commands in both fields
+  - Expected: green `Commands match` message
+- **Invalid cURL shows error**
+  - Input: `not a curl command`
+  - Expected: red error message
 
 ---
 

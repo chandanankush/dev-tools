@@ -110,7 +110,7 @@ All tools are registered once in `lib/tools.config.ts`. Adding a tool requires z
 |---|---|---|
 | `base64-tool` | Base64Utility | No |
 | `basic-calculator` | BasicCalculator | No |
-| `compare-tools` | CompareTools | No |
+| `compare-tools` | CompareTools — JSON: side-by-side visual diff with red/green row highlighting; cURL: structured field table | No |
 | `editor-pad` | EditorPad | No |
 | `json-tools` | JsonTools | No |
 | `jwt-generator` | JwtGenerator | No |
@@ -149,6 +149,33 @@ Browser → GET /tools/editor-pad
     → EditorPad hydrates client-side
       → reads localStorage ("editorpad-notes", "editorpad-active")
       → Tiptap editor initialised with immediatelyRender: false (SSR-safe)
+```
+
+### Compare Tools (client-side diff engine)
+
+```
+Browser → GET /tools/compare-tools
+  → Next.js renders [slug]/page.tsx (RSC)
+    → lazy import CompareTools
+    → CompareTools hydrates client-side
+
+JSON Compare flow:
+  User pastes JSON A + JSON B → clicks Compare
+    → JSON.parse() both inputs (throws on invalid JSON)
+    → buildSideBySideRows() recurses over both object trees
+        identical subtrees → "none" highlight (context rows, both sides)
+        primitive/type mismatch → renderLines() for each side →
+            left cells "removed" (red), right cells "added" (green)
+        object key only in A → left "removed", right cell empty
+        object key only in B → left cell empty, right "added" (green)
+    → countJsonDiff() for the difference badge count
+    → React renders two-column grid (JSON A | JSON B) with coloured rows
+
+cURL Compare flow:
+  User pastes cURL A + cURL B → clicks Compare
+    → tokenize() → parseCurl() extracts method, url, headers, body
+    → diffCurl() produces [{ field, leftValue, rightValue }]
+    → React renders table: Field | cURL A (red) | cURL B (green)
 ```
 
 ### URL Expander (only server-side tool)
