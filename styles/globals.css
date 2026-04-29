@@ -58,6 +58,78 @@ img {
   @apply select-none;
 }
 
+/* ─── EditorPad — Tiptap / ProseMirror styles ─────────────────────────────── */
+
+.editorpad-rich .editorpad-prosemirror {
+  min-height: 400px;
+  outline: none;
+}
+
+.editorpad-rich .editorpad-prosemirror > * + * {
+  margin-top: 0.5rem;
+}
+
+.editorpad-rich .editorpad-prosemirror h1 { @apply text-3xl font-bold mt-4 mb-2; }
+.editorpad-rich .editorpad-prosemirror h2 { @apply text-2xl font-semibold mt-4 mb-2; }
+.editorpad-rich .editorpad-prosemirror h3 { @apply text-xl font-semibold mt-3 mb-1; }
+
+.editorpad-rich .editorpad-prosemirror p {
+  @apply leading-relaxed;
+}
+
+.editorpad-rich .editorpad-prosemirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply text-muted-foreground float-left h-0 pointer-events-none;
+}
+
+.editorpad-rich .editorpad-prosemirror ul { @apply list-disc pl-6 my-2; }
+.editorpad-rich .editorpad-prosemirror ol { @apply list-decimal pl-6 my-2; }
+.editorpad-rich .editorpad-prosemirror li { @apply my-0.5; }
+
+.editorpad-rich .editorpad-prosemirror blockquote {
+  @apply border-l-4 border-border pl-4 italic my-3 text-muted-foreground;
+}
+
+.editorpad-rich .editorpad-prosemirror code {
+  @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.875em];
+}
+
+.editorpad-rich .editorpad-prosemirror pre {
+  @apply rounded-lg bg-muted p-4 font-mono text-sm my-3 overflow-x-auto;
+}
+
+.editorpad-rich .editorpad-prosemirror pre code {
+  @apply bg-transparent p-0;
+}
+
+.editorpad-rich .editorpad-prosemirror a {
+  @apply text-primary underline underline-offset-2 cursor-pointer;
+}
+
+/* Tables */
+.editorpad-rich .editorpad-prosemirror table {
+  @apply border-collapse w-full my-4 text-sm;
+}
+
+.editorpad-rich .editorpad-prosemirror th,
+.editorpad-rich .editorpad-prosemirror td {
+  @apply border border-border px-3 py-2 text-left align-top;
+  position: relative;
+}
+
+.editorpad-rich .editorpad-prosemirror th {
+  @apply bg-muted font-semibold;
+}
+
+.editorpad-rich .editorpad-prosemirror .selectedCell::after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  inset: 0;
+  background: hsl(var(--primary) / 0.15);
+  pointer-events: none;
+}
+
 @layer base {
   * {
     @apply border-border;

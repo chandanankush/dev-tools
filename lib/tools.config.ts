@@ -133,17 +133,28 @@ export const tools: ToolMeta[] = [
     icon: "calculator",
     component: () => import("@/components/tools/BasicCalculator"),
   },
+  {
+    slug: "editor-pad",
+    title: "Editor Pad",
+    description: "A browser-based notepad with multiple notes, plain and rich text modes, find & replace, and file import/export.",
+    tags: ["editor", "notepad", "text", "rich text", "notes", "writing"],
+    thumbnail: uuidThumbnail,
+    icon: "notebook-pen",
+    component: () => import("@/components/tools/EditorPad"),
+  },
 ];
 
 export function getToolBySlug(slug: string): ToolMeta | undefined {
   return tools.find((tool) => tool.slug === slug);
 }
 
-export const toolSummaries: ToolSummary[] = tools.map((tool) => {
-  const { component, thumbnail, ...rest } = tool;
-  void component;
-  return {
-    ...rest,
-    thumbnail: thumbnail.src,
-  };
-});
+export const toolSummaries: ToolSummary[] = tools
+  .map((tool) => {
+    const { component, thumbnail, ...rest } = tool;
+    void component;
+    return {
+      ...rest,
+      thumbnail: thumbnail.src,
+    };
+  })
+  .sort((a, b) => a.title.localeCompare(b.title, "en", { sensitivity: "base" }));

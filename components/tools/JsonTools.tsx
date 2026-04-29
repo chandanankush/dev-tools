@@ -158,9 +158,9 @@ export default function JsonTools() {
       </div>
 
       {/* Content Area */}
-      <div className="min-h-[600px] rounded-xl border bg-card shadow-sm">
+      <div className="h-[calc(100vh-380px)] min-h-[440px] rounded-xl border bg-card shadow-sm">
         {activeTab === "text" ? (
-          <div className="relative h-full min-h-[600px]">
+          <div className="relative h-full">
             <Textarea
               value={jsonContent}
               onChange={(e) => {
@@ -168,7 +168,7 @@ export default function JsonTools() {
                 setError(null);
               }}
               placeholder="Paste your JSON here..."
-              className="h-full min-h-[600px] w-full resize-none rounded-xl border-0 bg-transparent p-6 font-mono text-sm focus-visible:ring-0"
+              className="h-full w-full resize-none rounded-xl border-0 bg-transparent p-6 font-mono text-sm focus-visible:ring-0"
               spellCheck={false}
             />
             {error && (
@@ -178,7 +178,7 @@ export default function JsonTools() {
             )}
           </div>
         ) : (
-          <div className="h-full min-h-[600px] p-4">
+          <div className="h-full p-4">
             <JsonViewer
               data={getParsedData()}
               error={

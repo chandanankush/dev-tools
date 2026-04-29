@@ -24,7 +24,7 @@ export default function HomePage() {
         <div className="h-96 w-[64rem] rounded-full bg-gradient-to-r from-primary/20 via-sky-500/15 to-purple-500/20 blur-3xl" />
       </div>
 
-      <div className="container space-y-8 py-10 sm:py-14">
+      <div className="w-full space-y-8 px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-16 2xl:px-20">
         {/* ── Hero ── */}
         <header className="mx-auto flex flex-col items-center gap-4 text-center sm:max-w-3xl">
           {/* Terminal badge */}

@@ -54,7 +54,7 @@ export default async function ToolPage({ params }: ToolPageProps) {
   const ToolComponent = (await tool.component()).default;
 
   return (
-    <main className="container py-12">
+    <main className="w-full px-4 py-8 sm:px-6 sm:py-12 lg:px-10 xl:px-16 2xl:px-20">
       <ToolShell title={tool.title} description={tool.description}>
         <ToolComponent />
       </ToolShell>

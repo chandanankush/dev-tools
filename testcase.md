@@ -128,6 +128,62 @@ Test file: `tests/tools/uuid-generator.test.tsx`
 
 > Note: `crypto.randomUUID` is mocked for deterministic assertions.
 
+### 8) Editor Pad
+
+Test file: `tests/tools/editor-pad.test.tsx`
+
+- **Renders sidebar and default note**
+  - Expected: sidebar visible, default note created with timestamp title
+- **Creates new note on + click**
+  - Action: click **+**
+  - Expected: new note added to sidebar with a unique timestamp name (`DD-MM-YY HH:MM:SS`)
+- **Deletes note with trash icon**
+  - Action: click trash icon on the only note
+  - Expected: empty-state message shown
+- **Plain mode renders textarea**
+  - Expected: `<textarea>` with placeholder present in plain mode (default)
+- **Auto-saves after debounce**
+  - Input: type text into textarea
+  - After 500ms: `editorpad-notes` localStorage key updated with new content
+- **Live word / char count**
+  - Input: `hello world`
+  - Expected: status bar shows `2 words` and `11 chars`
+- **Status bar label matches mode**
+  - Plain mode → `Plain text`; Rich mode → `Rich text`
+- **Mode switch hides textarea**
+  - Action: click **Rich**
+  - Expected: textarea removed, status shows `Rich text`
+- **Find & Replace panel — toolbar button**
+  - Action: click search icon
+  - Expected: Find and Replace inputs visible
+- **Find & Replace panel — Ctrl+H keyboard shortcut**
+  - Action: dispatch `keydown` with `ctrlKey + h`
+  - Expected: panel toggles open/closed
+- **Replace All in plain mode**
+  - Input: `foo bar foo`, find `foo`, replace `baz`
+  - Expected: textarea value becomes `baz bar baz`
+- **Copy to clipboard**
+  - Action: click copy button
+  - Expected: `navigator.clipboard.writeText` called with note text
+- **Word wrap button visible only in plain mode**
+  - Expected: Wrap button present in plain mode, absent in rich mode
+- **Font size selector highlights active size**
+  - Action: click **XL**
+  - Expected: XL button receives active highlight class
+- **Inline rename — Enter commits**
+  - Action: double-click title, type new name, press Enter
+  - Expected: new title displayed
+- **Inline rename — Escape cancels**
+  - Action: double-click title, type new name, press Escape
+  - Expected: original title unchanged
+- **Upload button triggers file input**
+  - Action: click upload button
+  - Expected: hidden `<input type="file">` click fired
+
+> Note: All Tiptap packages are mocked in tests — jsdom does not support ProseMirror's DOM requirements. Download behaviour is mode-aware: `.txt` in plain mode, `.html` (full document) in rich mode.
+
+---
+
 ## Recommended post-change checklist
 
 Run these after major changes (middleware/CSP, dependency bumps, UI refactors):
@@ -136,6 +192,7 @@ Run these after major changes (middleware/CSP, dependency bumps, UI refactors):
 2. `pnpm run build`
 3. Spot-check key pages:
    - `/tools/json-tools`
+   - `/tools/editor-pad`
    - `/tools/compare-tools`
    - `/tools/jwt-generator`
    - `/tools/short-url-expander`

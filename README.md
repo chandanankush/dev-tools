@@ -1,6 +1,10 @@
 # Dev Toolkit on https://mopplications.com/
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](LICENSE)
+
 A TypeScript-first Next.js 15 App Router project for showcasing developer utilities. The homepage renders a searchable, tag-filterable grid of tools sourced from a single configuration file so new tools can be added with minimal effort.
+
+Made by **[Chandan Singh](https://www.linkedin.com/in/chandan-singh-mobileengineer/)** · [GitHub](https://github.com/chandanankush)
 
 ## Features
 
@@ -16,18 +20,21 @@ A TypeScript-first Next.js 15 App Router project for showcasing developer utilit
 
 | Tool | Description |
 |---|---|
-| **JSON Tools** | Prettify, validate, and explore JSON with a collapsible tree viewer |
-| **UUID Generator** | Generate RFC 4122 compliant UUIDs on demand |
-| **Short URL Expander** | Follow redirects and surface the final destination behind shortened links |
-| **QR Code Generator** | Encode text or URLs into QR codes with instant preview and PNG download |
-| **JWT Generator** | Craft HS256 JWTs with custom payload fields directly in the browser |
-| **Compare Tools** | Side-by-side diff for JSON payloads and cURL commands |
+| **Basic Calculator** | Evaluate arithmetic expressions with full operator and parentheses support, keyboard input, and a localStorage-backed history of the last 50 calculations |
 | **Base64 Tool** | Encode plain text or decode Base64 strings with copy-friendly output |
+| **Compare Tools** | Side-by-side diff for JSON payloads and cURL commands |
+| **Editor Pad** | Browser-based notepad with multiple notes, plain and rich text (WYSIWYG) modes, multi-note sidebar, find & replace, font size control, word wrap, and file import/export |
+| **JSON Tools** | Prettify, validate, and explore JSON with a collapsible tree viewer |
+| **JWT Generator** | Craft HS256 JWTs with custom payload fields directly in the browser |
+| **Password Generator** | Generate cryptographically random passwords with configurable length, character sets, and custom symbols |
+| **QR Code Generator** | Encode text or URLs into QR codes with instant preview and PNG download |
 | **Regex Tester** | Build and test regular expressions with live match highlighting, flag toggles, and named group support |
+| **Short URL Expander** | Follow redirects and surface the final destination behind shortened links |
 | **Timestamp Converter** | Convert Unix timestamps to human-readable dates and back; supports seconds/milliseconds and local/UTC timezones |
 | **URL Encoder / Decoder** | Percent-encode or decode URL components instantly; safe for query params, path segments, and full URLs |
-| **Password Generator** | Generate cryptographically random passwords with configurable length, character sets, and custom symbols |
-| **Basic Calculator** | Evaluate arithmetic expressions with full operator and parentheses support, keyboard input, and a localStorage-backed history of the last 50 calculations |
+| **UUID Generator** | Generate RFC 4122 compliant UUIDs on demand |
+
+> Tools are displayed in alphabetical order on the homepage.
 
 <img width="2550" height="1324" alt="Screenshot 2026-03-13 at 3 48 21 PM" src="https://github.com/user-attachments/assets/c7e15766-083f-400b-988c-212f4259e9d7" />
 
@@ -48,141 +55,38 @@ pnpm dev
 - `pnpm test` – run regression tests (Vitest)
 - `pnpm test:watch` – run tests in watch mode
 
+## Documentation
+
+| Doc | Contents |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Stack, directory structure, tool registry, request lifecycle, security model, Mermaid diagrams |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Local setup, code style, commit format, step-by-step guide to adding a new tool, PR checklist |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker multi-stage build, Jenkins pipeline, environment variables, reverse proxy setup |
+| [docs/AGENTS.md](docs/AGENTS.md) | Rules and memory for AI coding agents working in this repo |
+| [testcase.md](testcase.md) | Per-tool regression test cases and post-change checklist |
+
 ## Security
 
-This project includes nonce-based CSP and response hardening headers via Next.js middleware (`middleware.ts`).
+Nonce-based Content Security Policy enforced on every request via `middleware.ts`. Strict in production (`script-src 'nonce-...' 'strict-dynamic'`), relaxed for HMR in development.
 
-- Per-request nonce generation and forwarding to app routes via `x-nonce` request header.
-- `Content-Security-Policy` enforced with strict `script-src 'self' 'nonce-...'` in production.
-- The anti-FOUC theme script injected in `<head>` is nonce-signed and carries `suppressHydrationWarning` to handle browser nonce-stripping without React hydration warnings.
-- Additional hardening headers:
-  - `X-Frame-Options: DENY`
-  - `X-Content-Type-Options: nosniff`
-  - `Referrer-Policy: strict-origin-when-cross-origin`
-  - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
-- Middleware matcher applies to app/API routes while excluding static/framework assets.
-
-### Development note (CSP)
-
-For local development only, CSP includes limited allowances required by Next.js dev runtime:
-
-- `script-src` includes `'unsafe-eval'`
-- `connect-src` allows `ws:`/`wss:` for HMR
-
-Production remains strict and does **not** include `'unsafe-eval'`.
+→ Full header table and CSP details: [docs/ARCHITECTURE.md — Security model](docs/ARCHITECTURE.md#security-model)
 
 ## Testing
 
-Vitest + @testing-library/react. All tools have regression tests under `tests/tools/`:
-
-| Test file | Coverage |
-|---|---|
-| `basic-calculator.test.tsx` | Button input, evaluation, error states, history persistence, localStorage round-trip |
-| `password-generator.test.tsx` | Length slider, character sets, reveal toggle, regenerate |
-| `url-encoder-decoder.test.tsx` | Encode, decode, round-trip |
-| `timestamp-converter.test.tsx` | Timestamp → date, date → timestamp, error states |
-| `regex-tester.test.tsx` | Match highlighting, flag toggles, invalid pattern errors |
-| `jwt-generator.test.tsx` | Token generation, payload editing |
-| `base64-utility.test.tsx` | Encode and decode |
-| `json-tools.test.tsx` | Prettify, validate |
-| `compare-tools.test.tsx` | JSON and cURL diff |
-| `qr-code-generator.test.tsx` | QR generation |
-| `url-expander.test.tsx` | Redirect following |
-| `uuid-generator.test.tsx` | UUID format |
+Vitest + `@testing-library/react`, jsdom environment. 13 test files, 61+ tests across all tools.
 
 ```bash
 pnpm test
-pnpm build
 ```
 
-## Project layout
-
-```
-app/
-  layout.tsx               # Global metadata, ThemeProvider, anti-FOUC script
-  page.tsx                 # Homepage grid & search
-  tools/[slug]/page.tsx    # Dynamic tool route using the registry
-components/
-  ThemeProvider.tsx        # React context for dark/light mode + localStorage
-  ThemeToggle.tsx          # Fixed Sun/Moon toggle button (top-right, all pages)
-  ToolCard.tsx             # Card representation for each tool tile
-  ToolGallery.tsx          # Client component for Fuse.js search & tag filtering
-  ToolShell.tsx            # Shell used on individual tool pages
-  tools/                   # Lazy-loaded tool implementations
-  ui/                      # shadcn/ui primitives (button, input, label, textarea)
-lib/
-  tools.config.ts          # Single source of truth for available tools
-  search.ts                # Fuse.js wrapper with memoised index
-styles/
-  globals.css              # Tailwind base + HSL design tokens (light & dark)
-tests/
-  setup.ts                 # Vitest + jsdom + @testing-library/react setup
-  tools/                   # Per-tool regression tests
-public/
-  thumbs/                  # Tool thumbnails
-middleware.ts              # CSP nonce generation + security headers
-```
+→ Per-tool test cases and post-change checklist: [testcase.md](testcase.md)
 
 ## Adding a new tool
 
-1. **Register metadata** in `lib/tools.config.ts`:
-   - Add an object with `slug`, `title`, `description`, `tags`, `thumbnail`, `icon`, and `component`.
-   - `icon` must be a key in `components/ToolCard.tsx`'s `iconConfig`. Add a new `lucide-react` import and entry there if needed.
-   - Point `component` to a lazy import: `() => import("@/components/tools/MyTool")`.
-2. **Create the component** under `components/tools/` and export a default React component.
-   - Use `"use client";` for any client-side interactivity.
-   - Use shadcn/ui primitives (`Button`, `Input`, `Label`, `Textarea`) for visual consistency.
-   - Use `cn()` from `lib/utils.ts` for conditional Tailwind classes.
-3. **Add a thumbnail** image to `public/thumbs/` and reference it in the config.
-4. **Write tests** in `tests/tools/` following the existing Vitest + @testing-library/react patterns.
-
-Once saved, the tool automatically appears on the homepage, participates in fuzzy search and tag filtering, and is accessible at `/tools/{slug}`.
-
-## Dark mode
-
-Theme is toggled via the Sun/Moon button fixed in the top-right corner of every page. The preference is stored in `localStorage` under the key `theme` (`"light"` or `"dark"`). On first visit with no stored preference the OS `prefers-color-scheme` setting is respected.
-
-The design token system (`styles/globals.css`) defines separate HSL values for `:root` (light) and `.dark` (dark), covering background, card, border, muted, destructive, and all other semantic tokens. Adding dark-mode support to a new component requires no extra code — just use the semantic Tailwind color classes (`bg-card`, `text-foreground`, `border-border`, etc.).
+→ Full step-by-step guide: [docs/CONTRIBUTING.md — Adding a new tool](docs/CONTRIBUTING.md#adding-a-new-tool)
 
 ## Deployment
 
-The project is Vercel-ready with defaults provided by Next.js. Configure your deployment to use the `pnpm build` and `pnpm start` commands or deploy directly from GitHub with Vercel.
+Ships as a Docker container via a multi-stage `Dockerfile` (Node 20 Alpine, `output: standalone`). Jenkins pipeline included for ARM64 builds and remote deploy.
 
-Set `NEXT_PUBLIC_SITE_URL` in your hosting environment so `metadata`, `robots.txt`, and `sitemap.xml` use the correct canonical domain.
-
-### Docker on Raspberry Pi
-
-The repository ships with a multi-stage `Dockerfile` optimised for ARM64 (Raspberry Pi 4/5).
-
-Build and run locally (replace the URL with your public hostname):
-
-```bash
-docker buildx build \
-  --platform linux/arm64/v8 \
-  --tag dev-tools:latest \
-  --build-arg NEXT_PUBLIC_SITE_URL="https://dev-tools.local" \
-  .
-
-docker run -d \
-  --name dev-tools \
-  -p 3000:3000 \
-  -e NEXT_PUBLIC_SITE_URL="https://dev-tools.local" \
-  dev-tools:latest
-```
-
-### Jenkins pipeline (Docker deploy)
-
-A declarative `Jenkinsfile` is included for CI builds. The pipeline:
-
-1. Creates/uses a Docker Buildx builder (required for ARM64 cross-builds).
-2. Builds the container image for `linux/arm64/v8`, injecting `NEXT_PUBLIC_SITE_URL`.
-3. Optionally pushes the image to a registry when the `PUSH_IMAGE` parameter is enabled.
-
-Before running the job:
-
-- Ensure the Jenkins agent has Docker Buildx/QEMU support for arm64.
-- Configure a credential with ID `registry-creds` for your container registry (username/password or token).
-- Set the `IMAGE_NAME` parameter to your registry path (e.g., `ghcr.io/your-org/dev-tools`).
-- Provide the public `SITE_URL` so generated metadata and the sitemap use the canonical domain.
-
-Once pushed, you can pull the image on the Raspberry Pi host and run it via `docker run` or `docker compose`.
+→ Full instructions: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
