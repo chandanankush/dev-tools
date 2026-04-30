@@ -118,7 +118,7 @@ export default function PasswordGenerator() {
       {/* Password display */}
       <div className="space-y-2">
         <Label>Generated Password</Label>
-        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+        <div className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/50 px-4 py-3">
           <span
             className={cn(
               "flex-1 break-all font-mono text-base select-all",
@@ -139,7 +139,7 @@ export default function PasswordGenerator() {
             type="button"
             onClick={copyPassword}
             disabled={!password}
-            className="shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-40"
+            className="shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50"
             aria-label="Copy password"
           >
             {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
@@ -169,7 +169,7 @@ export default function PasswordGenerator() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label htmlFor="pwd-length">Length</Label>
-          <span className="rounded-md border border-border/60 bg-muted/30 px-2.5 py-0.5 font-mono text-sm">
+          <span className="rounded-md border border-border/80 bg-muted/50 px-2.5 py-0.5 font-mono text-sm">
             {length}
           </span>
         </div>
@@ -183,7 +183,7 @@ export default function PasswordGenerator() {
           className="w-full accent-primary"
           aria-label="Password length"
         />
-        <div className="flex justify-between font-mono text-[10px] text-muted-foreground">
+        <div className="flex justify-between font-mono text-[11px] text-muted-foreground">
           <span>4</span>
           <span>64</span>
         </div>

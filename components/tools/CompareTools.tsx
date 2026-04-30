@@ -321,7 +321,7 @@ function ComparePanel({
 
       {/* Diff output */}
       {diffContent && (
-        <div className="border-t bg-muted/20 p-4">{diffContent}</div>
+        <div className="border-t bg-muted/40 p-4">{diffContent}</div>
       )}
     </div>
   );
@@ -383,14 +383,14 @@ function JsonDiffView({
       {/* Side-by-side grid */}
       <div className="overflow-auto rounded-lg border bg-card font-mono text-sm">
         {/* Column headers */}
-        <div className="grid grid-cols-2 border-b bg-muted/40 text-xs font-medium text-muted-foreground">
+        <div className="grid grid-cols-2 border-b bg-muted/50 text-xs font-medium text-muted-foreground">
           <div className="px-3 py-1.5 border-r">JSON A</div>
           <div className="px-3 py-1.5">JSON B</div>
         </div>
 
         {/* Rows */}
         {rows.map((row, i) => (
-          <div key={i} className="grid grid-cols-2 border-b border-border/40 last:border-0">
+          <div key={i} className="grid grid-cols-2 border-b border-border/60 last:border-0">
             <DiffCell cell={row.left} side="left" />
             <DiffCell cell={row.right} side="right" />
           </div>
@@ -406,10 +406,10 @@ function DiffCell({ cell, side }: { cell: SideBySideCell; side: "left" | "right"
     <div
       className={cn(
         "min-h-[1.5rem] py-0.5 leading-6",
-        isLeft && "border-r border-border/40",
+        isLeft && "border-r border-border/60",
         cell.highlight === "removed" && "bg-red-50 dark:bg-red-950/40",
         cell.highlight === "added" && "bg-emerald-50 dark:bg-emerald-950/40",
-        cell.highlight === "empty" && "bg-muted/30",
+        cell.highlight === "empty" && "bg-muted/40",
       )}
       style={{ paddingLeft: `calc(0.75rem + ${cell.indent * 1.25}rem)`, paddingRight: "0.75rem" }}
     >
@@ -476,7 +476,7 @@ function CurlDiffView({
       <div className="overflow-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
+            <tr className="border-b bg-muted/50 text-xs text-muted-foreground">
               <th className="px-3 py-2 text-left font-medium">Field</th>
               <th className="px-3 py-2 text-left font-medium">cURL A</th>
               <th className="px-3 py-2 text-left font-medium">cURL B</th>

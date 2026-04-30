@@ -395,7 +395,7 @@ export default function JwtGenerator() {
               </div>
             </div>
           ) : (
-            <p className="rounded-lg border border-dashed border-border/70 bg-muted/40 p-4 text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
               Paste a JWT and decode it to inspect the header, payload, and signature segments.
             </p>
           )}

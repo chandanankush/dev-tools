@@ -136,7 +136,7 @@ export default function TimestampConverter() {
           </div>
         </fieldset>
 
-        <div className="ml-auto rounded-md border border-border/60 bg-muted/30 px-3 py-1.5">
+        <div className="ml-auto rounded-md border border-border/80 bg-muted/50 px-3 py-1.5">
           <span className="font-mono text-[11px] text-muted-foreground">now = </span>
           <span className="font-mono text-xs text-foreground">{nowTs}</span>
         </div>
@@ -168,9 +168,9 @@ export default function TimestampConverter() {
         {tsResult && (
           <div className="space-y-2">
             <Label>Result</Label>
-            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+            <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-muted/50 px-4 py-3">
               <span className="flex-1 font-mono text-sm text-foreground">{tsResult}</span>
-              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{tz.toUpperCase()}</span>
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{tz.toUpperCase()}</span>
               <button
                 type="button"
                 onClick={() => tsCopy.copy(tsResult)}
@@ -222,9 +222,9 @@ export default function TimestampConverter() {
         {dtResult && (
           <div className="space-y-2">
             <Label>Result</Label>
-            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+            <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-muted/50 px-4 py-3">
               <span className="flex-1 font-mono text-sm text-foreground">{dtResult}</span>
-              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{unit}</span>
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{unit}</span>
               <button
                 type="button"
                 onClick={() => dtCopy.copy(dtResult)}

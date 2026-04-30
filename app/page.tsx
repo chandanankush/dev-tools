@@ -114,7 +114,7 @@ export default function HomePage() {
             {/* Divider + author */}
             <div className="flex w-full items-center gap-4">
               <div className="h-px flex-1 bg-border/40" />
-              <span className="text-[11px] text-muted-foreground/60">made by</span>
+              <span className="text-[11px] text-muted-foreground">made by</span>
               <div className="h-px flex-1 bg-border/40" />
             </div>
 

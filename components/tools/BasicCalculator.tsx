@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Delete, Clock, Tag, Percent } from "lucide-react";
+import { Delete, Clock, Tag, Percent, Scale, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
+import WeightPriceCalculator from "./WeightPriceCalculator";
+
+type CalcTab = "calculator" | "weight";
 
 const STORAGE_KEY = "calc-history";
 const MAX_HISTORY = 50;
@@ -109,6 +112,7 @@ const BUTTONS: CalcButton[] = [
 ];
 
 export default function BasicCalculator() {
+  const [activeTab, setActiveTab] = useState<CalcTab>("calculator");
   const [expression, setExpression] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -272,6 +276,40 @@ export default function BasicCalculator() {
     );
 
   return (
+    <div className="space-y-4">
+      {/* Tab bar */}
+      <div className="flex gap-1 rounded-xl border border-border bg-muted p-1.5">
+        <button
+          type="button"
+          onClick={() => setActiveTab("calculator")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors",
+            activeTab === "calculator"
+              ? "bg-background shadow text-foreground"
+              : "text-foreground/60 hover:text-foreground hover:bg-background/50"
+          )}
+        >
+          <Calculator className="h-4 w-4" />
+          Calculator
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("weight")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors",
+            activeTab === "weight"
+              ? "bg-background shadow text-foreground"
+              : "text-foreground/60 hover:text-foreground hover:bg-background/50"
+          )}
+        >
+          <Scale className="h-4 w-4" />
+          Weight Price
+        </button>
+      </div>
+
+      {activeTab === "weight" ? (
+        <WeightPriceCalculator />
+      ) : (
     <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:justify-center">
       {/* Calculator panel */}
       <div className="w-full max-w-xs space-y-4">
@@ -289,7 +327,7 @@ export default function BasicCalculator() {
             autoComplete="off"
             className={cn(
               "w-full rounded-xl border px-4 py-3 text-right font-mono text-2xl",
-              "bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring",
+              "bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring",
               error ? "border-destructive" : "border-border/60"
             )}
           />
@@ -373,7 +411,7 @@ export default function BasicCalculator() {
 
         {/* Quick Actions */}
         <div className="space-y-2 pt-1">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/60">
             Quick Actions
           </p>
 
@@ -534,7 +572,7 @@ export default function BasicCalculator() {
                 <p className="font-mono text-base font-semibold text-foreground">
                   = {item.result}
                 </p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground/60">
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
                   {new Date(item.timestamp).toLocaleTimeString()}
                 </p>
               </button>
@@ -542,6 +580,8 @@ export default function BasicCalculator() {
           )}
         </div>
       </div>
+    </div>
+      )}
     </div>
   );
 }

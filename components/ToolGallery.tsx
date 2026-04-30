@@ -84,7 +84,7 @@ export function ToolGallery({ tools }: ToolGalleryProps) {
             "rounded-md border px-3 py-1 font-mono text-xs transition-colors",
             activeTag === null
               ? "border-primary bg-primary/10 text-primary"
-              : "border-border text-muted-foreground hover:text-foreground"
+              : "border-border text-foreground/70 hover:text-foreground hover:bg-muted/40"
           )}
         >
           all
@@ -97,7 +97,7 @@ export function ToolGallery({ tools }: ToolGalleryProps) {
               "rounded-md border px-3 py-1 font-mono text-xs transition-colors",
               activeTag === tag
                 ? "border-primary bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:text-foreground"
+                : "border-border text-foreground/70 hover:text-foreground hover:bg-muted/40"
             )}
           >
             {tag}
@@ -126,7 +126,7 @@ export function ToolGallery({ tools }: ToolGalleryProps) {
           />
         ))}
         {filtered.length === 0 && (
-          <div className="col-span-full rounded-xl border border-dashed bg-muted/30 p-12 text-center">
+          <div className="col-span-full rounded-xl border border-dashed bg-muted/50 p-12 text-center">
             <p className="text-sm text-muted-foreground">No tools match your search.</p>
             <button
               onClick={() => { setQuery(""); setActiveTag(null); }}

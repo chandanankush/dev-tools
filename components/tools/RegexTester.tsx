@@ -207,7 +207,7 @@ export default function RegexTester() {
           <Label>Preview</Label>
           <div
             aria-label="Match preview"
-            className="min-h-[80px] rounded-md border bg-muted/30 p-3 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words"
+            className="min-h-[80px] rounded-md border bg-muted/50 p-3 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words"
           >
             {highlighted}
           </div>
@@ -250,7 +250,7 @@ export default function RegexTester() {
           </div>
         ) : (
           pattern && !patternError && (
-            <p className="rounded-lg border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed bg-muted/50 p-4 text-center text-sm text-muted-foreground">
               No matches found.
             </p>
           )

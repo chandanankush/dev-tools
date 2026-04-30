@@ -221,7 +221,7 @@ function RichToolbar({ editor }: { editor: Editor | null }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 rounded-lg border bg-muted/30 p-1.5">
+    <div className="flex flex-wrap items-center gap-0.5 rounded-lg border bg-muted/50 p-1.5">
       {/* History */}
       <ToolbarBtn
         onClick={() => editor.chain().focus().undo().run()}
@@ -796,7 +796,7 @@ export default function EditorPad() {
                       {note.title}
                     </p>
                   )}
-                  <p className="text-[10px] text-muted-foreground">{relativeTime(note.updatedAt)}</p>
+                  <p className="text-[11px] text-muted-foreground">{relativeTime(note.updatedAt)}</p>
                 </div>
                 <button
                   type="button"
@@ -942,7 +942,7 @@ export default function EditorPad() {
 
         {/* ── Find & Replace panel ─────────────────────────────────────────── */}
         {showFindReplace && (
-          <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 border-b bg-muted/50 px-3 py-2">
             <Input
               placeholder="Find…"
               value={findText}
@@ -1013,7 +1013,7 @@ export default function EditorPad() {
         )}
 
         {/* ── Status bar ───────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-4 border-t bg-muted/30 px-3 py-1 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-4 border-t bg-muted/50 px-3 py-1 text-[11px] text-muted-foreground">
           <span>{stats.words} words</span>
           <span>{stats.chars} chars</span>
           <span>{stats.lines} lines</span>

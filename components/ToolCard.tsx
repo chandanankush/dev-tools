@@ -62,7 +62,7 @@ export function ToolCard({ slug, title, description, icon, tags, className }: To
         <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", bg)}>
           <Icon className={cn("h-5 w-5", color)} aria-hidden />
         </div>
-        <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+        <ArrowUpRight className="h-4 w-4 text-muted-foreground/70 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
       </div>
 
       <div className="space-y-1.5">
@@ -75,7 +75,7 @@ export function ToolCard({ slug, title, description, icon, tags, className }: To
           {tags.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="rounded-md bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+              className="rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
             >
               {tag}
             </span>
