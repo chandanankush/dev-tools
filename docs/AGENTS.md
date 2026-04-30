@@ -86,6 +86,111 @@ Quick agent checklist:
 
 ---
 
+## Session learnings — enforced guidelines
+
+These guidelines were derived from real mistakes and discoveries during active development. Every agent must follow them.
+
+---
+
+### 1. Run tests after every change
+
+Run `pnpm test` after **every** code change, no matter how small.
+
+- A layout or UI change (e.g. adding a mobile header) can introduce duplicate DOM elements that break existing `getByText` / `getByTitle` queries.
+- Tests must stay at the existing count and all must pass before committing.
+- If tests fail, fix them in the same commit — never commit broken tests.
+
+---
+
+### 2. Fix test gaps when you touch a component
+
+When editing a component that has low or missing test coverage, add regression tests for the new behaviour.
+
+**Anti-pattern caught:** The original `BasicCalculator` had only 14 tests. After adding `%`, GST, Discount, and Weight Price features, the suite grew to 39 tests. All new behaviour was tested.
+
+Rule: every new feature or interaction path needs at least one test.
+
+---
+
+### 3. WCAG AA contrast — design token discipline
+
+All text colours must meet **WCAG AA minimum** (4.5:1 for normal text, 3:1 for large/UI text).
+
+- **Root cause identified:** `--muted-foreground` was set to `215 20% 65%` (only 3.2:1 on white). Fixed to `42%` lightness (~5.5:1).
+- **Never double-dim** muted text with opacity — e.g. `text-muted-foreground/40` on a surface that is already `bg-muted/30` compounds to unreadable contrast.
+- Avoid `text-[10px]` — use `text-[11px]` minimum for readable small labels.
+- After any design-token or Tailwind class change, audit affected components for contrast regressions.
+- Preferred check: browser DevTools → Accessibility → Contrast ratio, or axe DevTools.
+
+---
+
+### 4. Mobile-first layout discipline
+
+Every component must be usable on a 375px-wide mobile screen.
+
+- **Fixed-width sidebars** (`w-52`, `w-64`) must collapse on mobile — use a hamburger toggle.
+- Fixed-width inputs inside panels (e.g. `w-36` in Find & Replace) must use `w-full sm:w-36`.
+- Use `100dvh` instead of `100vh` — mobile browser chrome eats into `100vh`.
+- Minimum tap target size: 44×44px. Use `h-9 w-9` / `p-2` as a floor for icon buttons.
+- Test layout at 375px, 768px, and 1280px breakpoints.
+
+---
+
+### 5. Commit granularity and sequencing
+
+Follow this sequence for every change:
+
+1. Make the code change.
+2. Run `pnpm test` — all tests must pass.
+3. Run `pnpm build` for non-trivial changes (routing, config, new imports).
+4. Commit with a descriptive message using the conventional commit prefix (`feat:`, `fix:`, `docs:`, `chore:`).
+5. Push only after commit succeeds and tests are green.
+
+**Never batch unrelated changes into one commit.** Feature changes, documentation updates, and chore/fix items each get their own commit.
+
+---
+
+### 6. Update documentation after every feature
+
+When a feature or behavioural change lands, update **all** relevant docs in the same session:
+
+| File | Update when |
+|---|---|
+| `README.md` | Tool list, test count, feature description |
+| `docs/ARCHITECTURE.md` | New files, directory structure, component graph |
+| `docs/CONTRIBUTING.md` | New patterns (e.g. embedded sub-tools, new conventions) |
+| `docs/AGENTS.md` | New rules, learnings, anti-patterns |
+| `testcase.md` | New test cases, updated section counts |
+
+Documentation commits use the `docs:` prefix.
+
+---
+
+### 7. Embedded sub-tools (tab pattern)
+
+When a tool is logically a sub-section of another (e.g. Weight Price inside Basic Calculator):
+
+- Do **not** register it in `lib/tools.config.ts`.
+- Import it directly inside the host component and render it as a tab.
+- Give the tab bar the `bg-muted p-1.5` container / `bg-background shadow` active / `text-foreground/60` inactive treatment for consistent contrast.
+- Document the host relationship in `docs/CONTRIBUTING.md` and note it in `docs/AGENTS.md`.
+
+---
+
+### 8. Dev server port
+
+The Next.js dev server does not support `--` flag forwarding with pnpm.
+
+```bash
+# ✅ correct
+PORT=3001 pnpm run dev
+
+# ❌ fails
+pnpm run dev -- -p 3001
+```
+
+---
+
 ## What agents must NOT do
 
 | Action | Reason |
@@ -97,3 +202,6 @@ Quick agent checklist:
 | Run `git push --force` or `git reset --hard` without confirmation | Destructive |
 | Delete files without confirmation | Destructive |
 | Add features beyond what was asked | Over-engineering |
+| Commit without running `pnpm test` first | May introduce silent regressions |
+| Use `100vh` for full-height panels | Breaks on mobile — use `100dvh` |
+| Use `text-muted-foreground` with opacity modifiers | Compounds contrast failures |
