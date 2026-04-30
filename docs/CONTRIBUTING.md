@@ -97,7 +97,15 @@ Cover at minimum:
 - Error / empty states.
 - localStorage persistence if the tool uses it.
 
-See existing tests (e.g. `tests/tools/basic-calculator.test.tsx`) for patterns. Mock any heavy DOM packages (canvas, WebGL, ProseMirror) — jsdom does not support them.
+See existing tests (e.g. `tests/tools/basic-calculator.test.tsx` — 39 tests covering arithmetic, parentheses, operator precedence, percentage, GST/discount) for patterns. Mock any heavy DOM packages (canvas, WebGL, ProseMirror) — jsdom does not support them.
+
+### Embedding a tool inside another tool
+
+If a feature logically belongs inside an existing tool (e.g. Weight Price Calculator inside Basic Calculator), do not register it in `tools.config.ts`. Instead:
+1. Create the component file normally.
+2. Import it directly into the host component.
+3. Add a tab bar inside the host to switch between views.
+4. Document the embedding in `docs/ARCHITECTURE.md` and `docs/AGENTS.md`.
 
 → Per-tool test cases and post-change checklist: [testcase.md](../testcase.md)
 

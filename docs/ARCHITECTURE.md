@@ -61,7 +61,7 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │   ├── ToolShell.tsx            Wrapper for individual tool pages (back link, title, card)
 │   ├── tools/                   One file per tool (lazy-loaded, "use client")
 │   │   ├── Base64Utility.tsx
-│   │   ├── BasicCalculator.tsx
+│   │   ├── BasicCalculator.tsx      # Calculator tab + Weight Price tab
 │   │   ├── CompareTools.tsx
 │   │   ├── EditorPad.tsx
 │   │   ├── JsonTools.tsx
@@ -73,7 +73,8 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │   │   ├── TimestampConverter.tsx
 │   │   ├── UrlEncoderDecoder.tsx
 │   │   ├── UrlExpander.tsx
-│   │   └── UuidGenerator.tsx
+│   │   ├── UuidGenerator.tsx
+│   │   └── WeightPriceCalculator.tsx  # Embedded as tab in BasicCalculator
 │   └── ui/                      shadcn/ui primitives
 │       ├── button.tsx
 │       ├── input.tsx
@@ -92,7 +93,7 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │
 ├── tests/
 │   ├── setup.ts                 Vitest global setup (next/image mock, cleanup)
-│   └── tools/                   Per-tool regression tests (13 files, 61+ tests)
+│   └── tools/                   Per-tool regression tests (13 files, 84+ tests)
 │
 ├── middleware.ts                 CSP nonce generation + security response headers
 ├── next.config.ts                standalone output, esmExternals

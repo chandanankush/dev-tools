@@ -227,5 +227,95 @@ Run these after major changes (middleware/CSP, dependency bumps, UI refactors):
    - `/tools/compare-tools`
    - `/tools/jwt-generator`
    - `/tools/short-url-expander`
+   - `/tools/basic-calculator` (both Calculator and Weight Price tabs)
 
 If a test fails, update this file when behavior has intentionally changed.
+
+---
+
+### 9) Basic Calculator
+
+Test file: `tests/tools/basic-calculator.test.tsx` (39 tests)
+
+**Core UI**
+- Renders expression input and key buttons (7, +, Equals, Clear, Backspace)
+- Clicking digit buttons appends to expression
+- Clicking operator buttons appends value
+- C button clears the expression
+- ⌫ button deletes the last character
+- Enter key evaluates the expression
+- Typing non-allowed characters is blocked
+
+**Arithmetic**
+- `3 + 4 = 7`
+- `10 / 2 = 5`
+- `6 * 7 = 42`
+
+**Operator precedence**
+- `2+3*4 = 14` (multiplication before addition)
+- `10-2+5 = 13` (left-to-right)
+- `100/5-8 = 12`
+- `2*3+4*5 = 26`
+- `20-5-3 = 12`
+- `(2+3)*4-1 = 19`
+
+**Parentheses**
+- `(2+3)*4 = 20`
+- `((3+2)*2)-4 = 6`
+- `(10-4)/(2+1) = 2`
+- `-(5+3) = -8`
+- `2*(3+(4*5)) = 46`
+- Mismatched parentheses → error
+
+**Error states**
+- Empty expression → "Expression is empty"
+- Division by zero → "Result is undefined"
+- Mismatched parentheses → error alert
+- Bare `%` with no preceding number → error alert
+
+**Percentage operator**
+- `%` button renders and appends `%`
+- `50% = 0.5`
+- `100% = 1`
+- `25% = 0.25`
+- `200+10% = 220` (10% of 200 = 20, added to 200)
+- `100-50% = 50` (50% of 100 = 50, subtracted)
+- `1000-20% = 800`
+- `500+5% = 525`
+- `200*10% = 20` (multiplicative)
+- `50%*2 = 1`
+
+**History**
+- Entry added after evaluation (expression + result visible)
+- Clicking history item restores expression
+- Saves to localStorage after evaluation
+- Loads from localStorage on mount
+
+**GST / Discount quick actions**
+- `+ GST` and `− Discount` buttons render
+- Buttons disabled when no value is in the expression
+- Typing percentage and pressing Enter/Apply applies GST (adds `value*(rate/100)` to value)
+- Typing percentage and pressing Enter/Apply applies discount (subtracts `value*(rate/100)` from value)
+- History entry records breakdown (e.g. `1000 + 180 GST @18%`)
+
+---
+
+### 10) Weight Price Calculator (tab inside Basic Calculator)
+
+No dedicated test file — covered via visual and manual testing.
+
+**Normal mode (Price → Total)**
+- Select unit: per kg / per 500g / per 100g / per 2kg
+- Enter price and weight → result auto-calculates
+- Breakdown line shows `Xkg × ₹Y/kg`
+- Rounding chips (Exact / ₹1 / ₹5 / ₹10) modify displayed result; exact shown below when rounding active
+- Negative inputs are blocked
+
+**Reverse mode (Total → Weight)**
+- Enter price/unit + total paid → shows kg and grams received
+
+**Edge cases**
+- Small weights (0.05 kg) handled correctly
+- Decimal prices (e.g. ₹99.99/kg) handled correctly
+- Empty inputs show placeholder, no result card rendered
+- Clear button resets price, weight, and total fields
