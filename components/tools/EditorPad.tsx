@@ -34,6 +34,7 @@ import {
   X,
   FileText,
   Table as TableIcon,
+  Menu,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -415,6 +416,7 @@ export default function EditorPad() {
   const [findText, setFindText]             = useState("");
   const [replaceText, setReplaceText]       = useState("");
   const [richText, setRichText]             = useState(""); // live plain-text mirror for stats
+  const [showSidebar, setShowSidebar]       = useState(false);
 
   const saveTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef   = useRef<HTMLInputElement>(null);
@@ -736,11 +738,38 @@ export default function EditorPad() {
   const fontSizeClass = FONT_SIZE_OPTIONS[fontSize].className;
 
   return (
-    <div className="flex h-[calc(100vh-360px)] min-h-[440px] overflow-hidden rounded-xl border bg-card shadow-sm">
+    <div className="flex flex-col md:flex-row h-[calc(100dvh-360px)] min-h-[400px] md:min-h-[440px] overflow-hidden rounded-xl border bg-card shadow-sm">
+
+      {/* ── Mobile header bar ─────────────────────────────────────────────── */}
+      <div className="flex flex-shrink-0 items-center gap-2 border-b px-3 py-2 md:hidden">
+        <button
+          type="button"
+          onClick={() => setShowSidebar((v) => !v)}
+          className="rounded p-1 transition hover:bg-accent"
+          title={showSidebar ? "Back to editor" : "Notes list"}
+        >
+          {showSidebar ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </button>
+        <span className="flex-1 truncate text-sm font-medium">
+          {activeNote?.title ?? "—"}
+        </span>
+        <button
+          type="button"
+          onClick={addNote}
+          className="rounded p-1 transition hover:bg-accent"
+          title="New note"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
-      <aside className="flex w-52 flex-shrink-0 flex-col border-r">
-        <div className="flex items-center justify-between border-b px-3 py-2.5">
+      <aside className={cn(
+        "flex-shrink-0 flex-col border-b md:border-b-0 md:border-r md:w-52",
+        showSidebar ? "flex" : "hidden",
+        "md:flex",
+      )}>
+        <div className="hidden md:flex items-center justify-between border-b px-3 py-2.5">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Notes
           </span>
@@ -769,8 +798,8 @@ export default function EditorPad() {
                   "group flex cursor-pointer items-start gap-2 px-3 py-2 transition-colors hover:bg-accent/50",
                   note.id === activeId && "bg-accent",
                 )}
-                onClick={() => { if (renamingId !== note.id) selectNote(note.id); }}
-                onKeyDown={(e) => { if (e.key === "Enter") selectNote(note.id); }}
+                onClick={() => { if (renamingId !== note.id) { selectNote(note.id); setShowSidebar(false); } }}
+                onKeyDown={(e) => { if (e.key === "Enter") { selectNote(note.id); setShowSidebar(false); } }}
               >
                 <FileText className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
@@ -813,7 +842,7 @@ export default function EditorPad() {
       </aside>
 
       {/* ── Editor pane ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className={cn("flex flex-1 flex-col overflow-hidden", showSidebar && "hidden md:flex")}>
 
         {/* ── Top toolbar ──────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
@@ -948,14 +977,14 @@ export default function EditorPad() {
               value={findText}
               onChange={(e) => setFindText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") applyReplace(false); }}
-              className="h-7 w-36 text-xs"
+              className="h-7 w-full sm:w-36 text-xs"
             />
             <Input
               placeholder="Replace with…"
               value={replaceText}
               onChange={(e) => setReplaceText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") applyReplace(false); }}
-              className="h-7 w-36 text-xs"
+              className="h-7 w-full sm:w-36 text-xs"
             />
             <Button
               size="sm"

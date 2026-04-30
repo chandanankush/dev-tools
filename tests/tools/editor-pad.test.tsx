@@ -42,7 +42,7 @@ beforeEach(() => {
 describe("EditorPad", () => {
   it("renders the notes sidebar and a default note", () => {
     render(<EditorPad />);
-    expect(screen.getByTitle("New note")).toBeInTheDocument();
+    expect(screen.getAllByTitle("New note")[0]).toBeInTheDocument();
     // default note title uses DD-MM-YY HH:MM:SS format
     const noteTitles = screen.getAllByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     expect(noteTitles.length).toBeGreaterThan(0);
@@ -51,7 +51,7 @@ describe("EditorPad", () => {
   it("creates a new note when + is clicked", () => {
     render(<EditorPad />);
     const before = screen.getAllByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/).length;
-    fireEvent.click(screen.getByTitle("New note"));
+    fireEvent.click(screen.getAllByTitle("New note")[0]);
     expect(screen.getAllByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/).length).toBeGreaterThan(before);
   });
 
@@ -170,7 +170,9 @@ describe("EditorPad", () => {
   it("inline rename: double-click shows input; Enter commits", () => {
     render(<EditorPad />);
     // Note title is a timestamp string matching DD-MM-YY HH:MM:SS
-    const titleEl = screen.getByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    // The mobile header also shows the title, so use getAllByText and target the sidebar <p>
+    const titleEls = screen.getAllByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    const titleEl = titleEls[titleEls.length - 1]; // sidebar <p> with onDoubleClick
     const originalTitle = titleEl.textContent!;
     fireEvent.doubleClick(titleEl);
 
@@ -178,12 +180,13 @@ describe("EditorPad", () => {
     fireEvent.change(input, { target: { value: "My Note" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
-    expect(screen.getByText("My Note")).toBeInTheDocument();
+    expect(screen.getAllByText("My Note").length).toBeGreaterThan(0);
   });
 
   it("inline rename: Escape cancels without saving", () => {
     render(<EditorPad />);
-    const titleEl = screen.getByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    const titleEls = screen.getAllByText(/^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    const titleEl = titleEls[titleEls.length - 1]; // sidebar <p> with onDoubleClick
     const originalTitle = titleEl.textContent!;
     fireEvent.doubleClick(titleEl);
 
@@ -192,7 +195,7 @@ describe("EditorPad", () => {
     fireEvent.keyDown(input, { key: "Escape" });
 
     // Title should revert to original timestamp
-    expect(screen.getByText(originalTitle)).toBeInTheDocument();
+    expect(screen.getAllByText(originalTitle).length).toBeGreaterThan(0);
     expect(screen.queryByText("Changed")).not.toBeInTheDocument();
   });
 
