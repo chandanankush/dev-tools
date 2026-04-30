@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Delete, Clock } from "lucide-react";
+import { Delete, Clock, Tag, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "calc-history";
 const MAX_HISTORY = 50;
-const ALLOWED_RE = /^[0-9+\-*/().\s]*$/;
+const ALLOWED_RE = /^[0-9+\-*/().%\s]*$/;
 
 type HistoryItem = { expression: string; result: string; timestamp: number };
 
@@ -17,7 +17,13 @@ function safeEval(expr: string): string {
 
   // Recursive descent parser — no eval/new Function (CSP-safe)
   let pos = 0;
-  const input = trimmed.replace(/\s+/g, "");
+  // Preprocess % — two passes:
+  // 1. Context-aware: a+b% → a+(a*(b/100)),  a-b% → a-(a*(b/100))  (e.g. 200+10% = 220)
+  // 2. Standalone / multiplicative: number% → (number/100)          (e.g. 50% = 0.5, 200*10% = 20)
+  const input = trimmed
+    .replace(/\s+/g, "")
+    .replace(/(\d+(?:\.\d*)?)([+-])(\d+(?:\.\d*)?)%/g, (_, a, op, b) => `${a}${op}(${a}*(${b}/100))`)
+    .replace(/(\d+(?:\.\d*)?)%/g, "($1/100)");
 
   function parseNumber(): number {
     const start = pos;
@@ -95,7 +101,8 @@ const BUTTONS: CalcButton[] = [
   { label: "2",  value: "2",  type: "digit" },
   { label: "3",  value: "3",  type: "digit" },
   { label: "+",  value: "+",  type: "operator" },
-  { label: "0",  value: "0",  type: "zero" },
+  { label: "0",  value: "0",  type: "digit" },
+  { label: "%",  value: "%",  type: "operator" },
   { label: ".",  value: ".",  type: "dot" },
   { label: "⌫",  type: "backspace" },
   { label: "=",  type: "equals" },
@@ -105,7 +112,11 @@ export default function BasicCalculator() {
   const [expression, setExpression] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [activeQuickAction, setActiveQuickAction] = useState<"gst" | "discount" | null>(null);
+  const [lastFlash, setLastFlash] = useState<"gst" | "discount" | null>(null);
+  const [quickPct, setQuickPct] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const quickPctRef = useRef<HTMLInputElement>(null);
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -183,6 +194,66 @@ export default function BasicCalculator() {
     inputRef.current?.focus();
   };
 
+  /** Returns the numeric value of the current expression, or null if invalid/empty. */
+  const getCurrentValue = (): number | null => {
+    if (!expression.trim()) return null;
+    try {
+      const val = parseFloat(safeEval(expression));
+      return isFinite(val) ? val : null;
+    } catch {
+      return null;
+    }
+  };
+
+  /** Precise percentage: avoids IEEE-754 drift for common financial numbers. */
+  const pct = (value: number, rate: number): number =>
+    Math.round(value * rate * 1e10) / 1e12;
+
+  const triggerFlash = (type: "gst" | "discount") => {
+    setLastFlash(type);
+    setTimeout(() => setLastFlash(null), 700);
+  };
+
+  const applyGst = (rate: number) => {
+    const val = getCurrentValue();
+    if (val === null) { setError("Enter an amount first"); return; }
+    const tax = pct(val, rate);
+    const result = parseFloat((val + tax).toFixed(10));
+    const resultStr = Number(result.toPrecision(12)).toString();
+    const item: HistoryItem = {
+      expression: `${val} + ${tax} GST @${rate}%`,
+      result: resultStr,
+      timestamp: Date.now(),
+    };
+    setHistory((prev) => [item, ...prev].slice(0, MAX_HISTORY));
+    setExpression(resultStr);
+    setError(null);
+    setActiveQuickAction(null);
+    setQuickPct("");
+    triggerFlash("gst");
+    inputRef.current?.focus();
+  };
+
+  const applyDiscount = (rate: number) => {
+    const val = getCurrentValue();
+    if (val === null) { setError("Enter an amount first"); return; }
+    const discount = pct(val, rate);
+    const result = parseFloat((val - discount).toFixed(10));
+    const resultStr = Number(result.toPrecision(12)).toString();
+    const item: HistoryItem = {
+      expression: `${val} − ${discount} off @${rate}%`,
+      result: resultStr,
+      timestamp: Date.now(),
+    };
+    setHistory((prev) => [item, ...prev].slice(0, MAX_HISTORY));
+    setExpression(resultStr);
+    setError(null);
+    setActiveQuickAction(null);
+    setQuickPct("");
+    triggerFlash("discount");
+    inputRef.current?.focus();
+  };
+
   const buttonClass = (type: CalcButton["type"]) =>
     cn(
       "flex items-center justify-center rounded-xl border font-medium transition-colors",
@@ -201,9 +272,9 @@ export default function BasicCalculator() {
     );
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
+    <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:justify-center">
       {/* Calculator panel */}
-      <div className="flex-1 space-y-4">
+      <div className="w-full max-w-xs space-y-4">
         {/* Expression input */}
         <div className="space-y-1">
           <input
@@ -277,7 +348,7 @@ export default function BasicCalculator() {
                   key={i}
                   type="button"
                   aria-label="Equals"
-                  className={buttonClass("equals")}
+                  className={cn(buttonClass("equals"), "col-span-4")}
                   onClick={handleEvaluate}
                 >
                   {btn.label}
@@ -298,6 +369,123 @@ export default function BasicCalculator() {
               </button>
             );
           })}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="space-y-2 pt-1">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Quick Actions
+          </p>
+
+          {/* GST */}
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              aria-label="Add GST"
+              disabled={getCurrentValue() === null}
+              onClick={() => setActiveQuickAction((a) => (a === "gst" ? null : "gst"))}
+              className={cn(
+                "flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+                "disabled:cursor-not-allowed disabled:opacity-40",
+                lastFlash === "gst"
+                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                  : activeQuickAction === "gst"
+                    ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : "border-border/60 bg-card text-card-foreground hover:bg-muted/60"
+              )}
+            >
+              <Tag className="h-3.5 w-3.5" />
+              + GST
+            </button>
+            {activeQuickAction === "gst" && (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={quickPctRef}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  aria-label="GST percentage"
+                  placeholder="e.g. 18"
+                  value={quickPct}
+                  onChange={(e) => setQuickPct(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const r = parseFloat(quickPct);
+                      if (isFinite(r) && r > 0) applyGst(r);
+                    }
+                    if (e.key === "Escape") { setActiveQuickAction(null); setQuickPct(""); }
+                  }}
+                  autoFocus
+                  className="w-full rounded-lg border border-emerald-500/40 bg-emerald-50 px-3 py-1.5 text-sm font-mono text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-200"
+                />
+                <span className="text-sm text-emerald-700 dark:text-emerald-300">%</span>
+                <button
+                  type="button"
+                  onClick={() => { const r = parseFloat(quickPct); if (isFinite(r) && r > 0) applyGst(r); }}
+                  disabled={!quickPct || parseFloat(quickPct) <= 0}
+                  className="rounded-lg border border-emerald-500/50 bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-40"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Discount */}
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              aria-label="Apply Discount"
+              disabled={getCurrentValue() === null}
+              onClick={() => setActiveQuickAction((a) => (a === "discount" ? null : "discount"))}
+              className={cn(
+                "flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+                "disabled:cursor-not-allowed disabled:opacity-40",
+                lastFlash === "discount"
+                  ? "border-rose-500 bg-rose-500/20 text-rose-700 dark:text-rose-300"
+                  : activeQuickAction === "discount"
+                    ? "border-rose-500/60 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                    : "border-border/60 bg-card text-card-foreground hover:bg-muted/60"
+              )}
+            >
+              <Percent className="h-3.5 w-3.5" />
+              − Discount
+            </button>
+            {activeQuickAction === "discount" && (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={quickPctRef}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  aria-label="Discount percentage"
+                  placeholder="e.g. 20"
+                  value={quickPct}
+                  onChange={(e) => setQuickPct(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const r = parseFloat(quickPct);
+                      if (isFinite(r) && r > 0) applyDiscount(r);
+                    }
+                    if (e.key === "Escape") { setActiveQuickAction(null); setQuickPct(""); }
+                  }}
+                  autoFocus
+                  className="w-full rounded-lg border border-rose-500/40 bg-rose-50 px-3 py-1.5 text-sm font-mono text-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-400 dark:bg-rose-950/40 dark:text-rose-200"
+                />
+                <span className="text-sm text-rose-700 dark:text-rose-300">%</span>
+                <button
+                  type="button"
+                  onClick={() => { const r = parseFloat(quickPct); if (isFinite(r) && r > 0) applyDiscount(r); }}
+                  disabled={!quickPct || parseFloat(quickPct) <= 0}
+                  className="rounded-lg border border-rose-500/50 bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-600 disabled:opacity-40"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

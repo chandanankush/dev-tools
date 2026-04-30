@@ -156,4 +156,170 @@ describe("BasicCalculator", () => {
     render(<BasicCalculator />);
     expect(screen.getByText("1+1")).toBeInTheDocument();
   });
+
+  // ─── Parentheses tests ───────────────────────────────────────────────────
+
+  it("evaluates ((3+2)*2)-4 = 6", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "((3+2)*2)-4" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("6");
+  });
+
+  it("evaluates (10-4)/(2+1) = 2", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "(10-4)/(2+1)" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("2");
+  });
+
+  it("evaluates -(5+3) = -8", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "-(5+3)" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("-8");
+  });
+
+  it("evaluates 2*(3+(4*5)) = 46", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "2*(3+(4*5))" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("46");
+  });
+
+  it("shows error for mismatched parentheses", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "(2+3" } });
+    clickButton("Equals");
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  // ─── Multiple operators / precedence tests ────────────────────────────────
+
+  it("respects operator precedence: 2+3*4 = 14", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "2+3*4" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("14");
+  });
+
+  it("evaluates left-to-right addition/subtraction: 10-2+5 = 13", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "10-2+5" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("13");
+  });
+
+  it("evaluates 100/5-8 = 12", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "100/5-8" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("12");
+  });
+
+  it("evaluates 2*3+4*5 = 26", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "2*3+4*5" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("26");
+  });
+
+  it("evaluates chained subtraction: 20-5-3 = 12", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "20-5-3" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("12");
+  });
+
+  it("evaluates mixed with parentheses overriding precedence: (2+3)*4-1 = 19", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "(2+3)*4-1" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("19");
+  });
+
+  // ─── Percentage tests ────────────────────────────────────────────────────
+
+  it("renders the % button", () => {
+    render(<BasicCalculator />);
+    expect(screen.getByRole("button", { name: "%" })).toBeInTheDocument();
+  });
+
+  it("clicking % button appends % to expression", () => {
+    render(<BasicCalculator />);
+    clickButton("5");
+    clickButton("0");
+    clickButton("%");
+    expect(getInput().value).toBe("50%");
+  });
+
+  it("evaluates 50% = 0.5", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "50%" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("0.5");
+  });
+
+  it("evaluates 100% = 1", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "100%" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("1");
+  });
+
+  it("evaluates 25% = 0.25", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "25%" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("0.25");
+  });
+
+  it("evaluates 200+10% = 220 (10% of 200 is 20)", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "200+10%" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("220");
+  });
+
+  it("evaluates 100-50% = 50 (50% of 100 is 50)", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "100-50%" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("50");
+  });
+
+  it("evaluates 200*10% = 20", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "200*10%" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("20");
+  });
+
+  it("evaluates 50%*2 = 1", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "50%*2" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("1");
+  });
+
+  it("evaluates 1000-20% = 800 (20% of 1000 is 200)", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "1000-20%" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("800");
+  });
+
+  it("evaluates 500+5% = 525 (5% of 500 is 25)", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "500+5%" } });
+    clickButton("Equals");
+    expect(getInput().value).toBe("525");
+  });
+
+  it("shows error for bare % with no preceding number", () => {
+    render(<BasicCalculator />);
+    fireEvent.change(getInput(), { target: { value: "%" } });
+    clickButton("Equals");
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
 });
