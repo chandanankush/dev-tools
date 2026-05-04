@@ -1,5 +1,13 @@
 import { fireEvent, render, screen, act } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { createElement } from "react";
+
+// ── react-markdown / remark-gfm mocks ─────────────────────────────────────────
+vi.mock("react-markdown", () => ({
+  default: ({ children }: { children: string }) =>
+    createElement("div", { "data-testid": "md-preview" }, children),
+}));
+vi.mock("remark-gfm", () => ({ default: {} }));
 
 // ── Tiptap must be mocked — jsdom lacks full ProseMirror DOM support ──────────
 vi.mock("@tiptap/react", () => ({
@@ -152,11 +160,19 @@ describe("EditorPad", () => {
     expect(writeText).toHaveBeenCalledWith("copy me");
   });
 
-  it("word wrap toggle button is shown only in plain mode", () => {
+  it("word wrap toggle is shown in plain mode, hidden in rich mode, and toggles with markdown sub-view", () => {
     render(<EditorPad />);
     expect(screen.getByText("Wrap")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Rich"));
+    expect(screen.queryByText("Wrap")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("MD"));
+    // Write sub-view (default) — wrap should be visible
+    expect(screen.getByText("Wrap")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Preview"));
+    // Preview sub-view — wrap should be hidden
     expect(screen.queryByText("Wrap")).not.toBeInTheDocument();
   });
 
@@ -207,5 +223,135 @@ describe("EditorPad", () => {
 
     fireEvent.click(uploadBtn);
     expect(clickSpy).toHaveBeenCalled();
+  });
+});
+
+describe("EditorPad — Markdown mode", () => {
+  it("renders MD button in the mode toggle", () => {
+    render(<EditorPad />);
+    expect(screen.getByText("MD")).toBeInTheDocument();
+  });
+
+  it("switches to markdown mode and shows 'Markdown' in status bar", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    expect(screen.getByText("Markdown")).toBeInTheDocument();
+  });
+
+  it("shows Write/Preview sub-toggle when in markdown mode", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    expect(screen.getByText("Write")).toBeInTheDocument();
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+  });
+
+  it("shows the markdown textarea (Write pane) by default", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    expect(screen.getByPlaceholderText("Write markdown here…")).toBeInTheDocument();
+  });
+
+  it("clicking Preview hides textarea and shows rendered preview", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    fireEvent.click(screen.getByText("Preview"));
+    expect(screen.getByTestId("md-preview")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Write markdown here…")).not.toBeInTheDocument();
+  });
+
+  it("typed markdown content auto-saves to localStorage after debounce", async () => {
+    vi.useFakeTimers();
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+
+    const textarea = screen.getByPlaceholderText("Write markdown here…") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "# Hello markdown" } });
+
+    await act(async () => {
+      vi.advanceTimersByTime(600);
+    });
+
+    const stored = JSON.parse(localStorageMock.getItem("editorpad-notes") ?? "[]") as { content: string; mode: string }[];
+    expect(stored[0]?.content).toBe("# Hello markdown");
+    expect(stored[0]?.mode).toBe("markdown");
+    vi.useRealTimers();
+  });
+
+  it("updates word count from raw markdown content", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    const textarea = screen.getByPlaceholderText("Write markdown here…");
+    // "# Hello World" splits to 3 tokens: "#", "Hello", "World"
+    fireEvent.change(textarea, { target: { value: "# Hello World" } });
+    expect(screen.getByText("3 words")).toBeInTheDocument();
+  });
+
+  it("switching plain → markdown keeps plain content intact", () => {
+    render(<EditorPad />);
+    const textarea = screen.getByPlaceholderText("Start typing…") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "original content" } });
+    fireEvent.click(screen.getByText("MD"));
+    expect(screen.getByPlaceholderText("Write markdown here…")).toHaveValue("original content");
+  });
+
+  it("switching markdown → plain keeps raw markdown as plain content", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    const mdTextarea = screen.getByPlaceholderText("Write markdown here…") as HTMLTextAreaElement;
+    fireEvent.change(mdTextarea, { target: { value: "**bold** text" } });
+    fireEvent.click(screen.getByText("Plain"));
+    expect(screen.getByPlaceholderText("Start typing…")).toHaveValue("**bold** text");
+  });
+
+  it("switching markdown → rich removes textarea and shows Rich text status", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    fireEvent.click(screen.getByText("Rich"));
+    expect(screen.getByText("Rich text")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Write markdown here…")).not.toBeInTheDocument();
+  });
+
+  it("replace-all works in markdown mode", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    const textarea = screen.getByPlaceholderText("Write markdown here…") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "foo bar foo" } });
+
+    fireEvent.click(screen.getByTitle("Find & Replace (Ctrl+H)"));
+    fireEvent.change(screen.getByPlaceholderText("Find…"), { target: { value: "foo" } });
+    fireEvent.change(screen.getByPlaceholderText("Replace with…"), { target: { value: "baz" } });
+    fireEvent.click(screen.getByText("Replace All"));
+
+    expect(textarea.value).toBe("baz bar baz");
+  });
+
+  it("download tooltip shows 'Download as .md' in markdown mode", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    expect(screen.getByTitle("Download as .md")).toBeInTheDocument();
+  });
+
+  it("uploading a .md file auto-switches note to markdown mode", async () => {
+    // FileReader.readAsText is async in jsdom — mock it to fire onload synchronously
+    const originalFileReader = global.FileReader;
+    class SyncFileReader {
+      onload: ((ev: { target: { result: string } }) => void) | null = null;
+      readAsText(_file: File) {
+        this.onload?.({ target: { result: "# Hello from file" } });
+      }
+    }
+    vi.stubGlobal("FileReader", SyncFileReader);
+
+    render(<EditorPad />);
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const mdFile = new File(["# Hello from file"], "readme.md", { type: "text/markdown" });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [mdFile] } });
+    });
+
+    expect(screen.getByText("Markdown")).toBeInTheDocument();
+
+    vi.stubGlobal("FileReader", originalFileReader);
   });
 });

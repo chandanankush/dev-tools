@@ -130,6 +130,33 @@ img {
   pointer-events: none;
 }
 
+/* ─── EditorPad — Markdown preview ─────────────────────────────────────────── */
+
+.editorpad-md-preview { color: hsl(var(--foreground)); line-height: 1.7; }
+.editorpad-md-preview > * + * { margin-top: 0.75rem; }
+.editorpad-md-preview h1 { @apply text-3xl font-bold mt-6 mb-3; }
+.editorpad-md-preview h2 { @apply text-2xl font-semibold mt-5 mb-2; }
+.editorpad-md-preview h3 { @apply text-xl font-semibold mt-4 mb-1.5; }
+.editorpad-md-preview h4,
+.editorpad-md-preview h5,
+.editorpad-md-preview h6 { @apply text-lg font-semibold mt-3 mb-1; }
+.editorpad-md-preview p { @apply leading-relaxed; }
+.editorpad-md-preview ul { @apply list-disc pl-6 my-2; }
+.editorpad-md-preview ol { @apply list-decimal pl-6 my-2; }
+.editorpad-md-preview li { @apply my-0.5 leading-relaxed; }
+.editorpad-md-preview li input[type="checkbox"] { margin-right: 0.4em; vertical-align: middle; }
+.editorpad-md-preview blockquote { @apply border-l-4 border-border pl-4 italic my-3 text-muted-foreground; }
+.editorpad-md-preview code { @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.875em]; }
+.editorpad-md-preview pre { @apply rounded-lg bg-muted p-4 font-mono text-sm my-3 overflow-x-auto; }
+.editorpad-md-preview pre code { @apply bg-transparent p-0; }
+.editorpad-md-preview a { @apply text-primary underline underline-offset-2; }
+.editorpad-md-preview table { @apply border-collapse w-full my-4 text-sm; }
+.editorpad-md-preview th,
+.editorpad-md-preview td { @apply border border-border px-3 py-2 text-left align-top; }
+.editorpad-md-preview th { @apply bg-muted font-semibold; }
+.editorpad-md-preview del { @apply line-through text-muted-foreground; }
+.editorpad-md-preview hr { @apply my-6 border-t border-border; }
+
 @layer base {
   * {
     @apply border-border;

@@ -10,6 +10,9 @@ import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table
 import { TextStyle } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import {
   Plus,
   Trash2,
@@ -35,6 +38,9 @@ import {
   FileText,
   Table as TableIcon,
   Menu,
+  Pencil,
+  Eye,
+  Columns2,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -43,15 +49,16 @@ import { cn } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type NoteMode = "plain" | "rich";
+type NoteMode = "plain" | "rich" | "markdown";
 
 interface Note {
   id: string;
   title: string;
-  /** Plain text in plain mode; HTML string in rich mode */
+  /** Plain text in plain mode; HTML string in rich mode; raw markdown in markdown mode */
   content: string;
   mode: NoteMode;
   updatedAt: number;
+  mdView?: "write" | "preview";
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -417,6 +424,8 @@ export default function EditorPad() {
   const [replaceText, setReplaceText]       = useState("");
   const [richText, setRichText]             = useState(""); // live plain-text mirror for stats
   const [showSidebar, setShowSidebar]       = useState(false);
+  const [mdView, setMdView]                 = useState<"write" | "preview">("write");
+  const [mdSplit, setMdSplit]               = useState(false);
 
   const saveTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef   = useRef<HTMLInputElement>(null);
@@ -497,6 +506,9 @@ export default function EditorPad() {
           setRichText(editor.getText());
         }
       }
+      if (note?.mode === "markdown") {
+        setMdView(note.mdView ?? "write");
+      }
       return prev; // no change to notes array
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -545,6 +557,35 @@ export default function EditorPad() {
     },
     [activeId],
   );
+
+  const handleMarkdownChange = useCallback(
+    (value: string) => {
+      setNotes((prev) => prev.map((n) => (n.id === activeId ? { ...n, content: value } : n)));
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        const id = activeIdRef.current;
+        if (!id) return;
+        setNotes((prev) => {
+          const updated = prev.map((n) =>
+            n.id === id ? { ...n, content: value, updatedAt: Date.now() } : n,
+          );
+          persistNotes(updated);
+          return updated;
+        });
+      }, DEBOUNCE_MS);
+    },
+    [activeId],
+  );
+
+  const handleMdViewChange = (view: "write" | "preview") => {
+    setMdView(view);
+    if (!activeId) return;
+    setNotes((prev) => {
+      const updated = prev.map((n) => (n.id === activeId ? { ...n, mdView: view } : n));
+      persistNotes(updated);
+      return updated;
+    });
+  };
 
   // ─── Note management ────────────────────────────────────────────────────────
 
@@ -601,30 +642,39 @@ export default function EditorPad() {
 
   // ─── Mode switching ─────────────────────────────────────────────────────────
 
-  const toggleMode = () => {
-    if (!activeNote) return;
-    const nextMode: NoteMode = activeNote.mode === "plain" ? "rich" : "plain";
+  const switchToMode = (target: NoteMode) => {
+    if (!activeNote || activeNote.mode === target) return;
+    const from = activeNote.mode;
     let nextContent = activeNote.content;
 
-    if (nextMode === "rich") {
-      // Convert plain text → minimal HTML paragraphs for Tiptap
+    if (from === "plain" && target === "rich") {
       nextContent = activeNote.content
         .split("\n")
         .map((line) => `<p>${line.trim() === "" ? "<br/>" : line}</p>`)
         .join("");
-      if (editor) {
-        editor.commands.setContent(nextContent);
-        setRichText(editor.getText());
-      }
-    } else {
-      // Convert rich HTML → plain text (fall back to existing content if editor is unavailable)
+      if (editor) { editor.commands.setContent(nextContent); setRichText(editor.getText()); }
+    } else if (from === "rich" && target === "plain") {
       nextContent = editor ? editor.getText() : activeNote.content;
+    } else if (from === "plain" && target === "markdown") {
+      // plain text is valid markdown — zero-loss, no transformation
+      setMdView("write");
+    } else if (from === "markdown" && target === "plain") {
+      // raw markdown stays as plain text — keep content as-is
+    } else if (from === "rich" && target === "markdown") {
+      nextContent = editor ? editor.getText() : activeNote.content;
+      setMdView("write");
+    } else if (from === "markdown" && target === "rich") {
+      nextContent = activeNote.content
+        .split("\n")
+        .map((line) => `<p>${line.trim() === "" ? "<br/>" : line}</p>`)
+        .join("");
+      if (editor) { editor.commands.setContent(nextContent); setRichText(editor.getText()); }
     }
 
     setNotes((prev) => {
       const updated = prev.map((n) =>
         n.id === activeId
-          ? { ...n, mode: nextMode, content: nextContent, updatedAt: Date.now() }
+          ? { ...n, mode: target, content: nextContent, updatedAt: Date.now() }
           : n,
       );
       persistNotes(updated);
@@ -680,6 +730,10 @@ export default function EditorPad() {
       ].join("\n");
       mimeType  = "text/html;charset=utf-8";
       extension = "html";
+    } else if (activeNote.mode === "markdown") {
+      content   = activeNote.content;
+      mimeType  = "text/markdown;charset=utf-8";
+      extension = "md";
     } else {
       content   = getPlainText();
       mimeType  = "text/plain;charset=utf-8";
@@ -698,10 +752,25 @@ export default function EditorPad() {
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const isMarkdownFile = file.name.endsWith(".md");
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      if (activeNote?.mode === "plain") {
+      if (isMarkdownFile && activeNote?.mode !== "markdown") {
+        // .md file uploaded into a non-markdown note — auto-switch to markdown mode
+        setMdView("write");
+        setNotes((prev) => {
+          const updated = prev.map((n) =>
+            n.id === activeId
+              ? { ...n, mode: "markdown" as NoteMode, content: text, mdView: "write" as const, updatedAt: Date.now() }
+              : n,
+          );
+          persistNotes(updated);
+          return updated;
+        });
+        return;
+      }
+      if (activeNote?.mode === "plain" || activeNote?.mode === "markdown") {
         handlePlainChange(text);
       } else if (editor) {
         const html = text
@@ -719,7 +788,7 @@ export default function EditorPad() {
 
   const applyReplace = (replaceAll: boolean) => {
     if (!activeNote || !findText) return;
-    if (activeNote.mode === "plain") {
+    if (activeNote.mode === "plain" || activeNote.mode === "markdown") {
       const newContent = replaceAll
         ? activeNote.content.split(findText).join(replaceText)
         : activeNote.content.replace(findText, replaceText);
@@ -850,7 +919,7 @@ export default function EditorPad() {
           <div className="flex overflow-hidden rounded-md border text-xs">
             <button
               type="button"
-              onClick={() => activeNote?.mode !== "plain" && toggleMode()}
+              onClick={() => switchToMode("plain")}
               className={cn(
                 "px-2.5 py-1 transition-colors",
                 activeNote?.mode === "plain"
@@ -862,7 +931,19 @@ export default function EditorPad() {
             </button>
             <button
               type="button"
-              onClick={() => activeNote?.mode !== "rich" && toggleMode()}
+              onClick={() => switchToMode("markdown")}
+              className={cn(
+                "border-l px-2.5 py-1 transition-colors",
+                activeNote?.mode === "markdown"
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent",
+              )}
+            >
+              MD
+            </button>
+            <button
+              type="button"
+              onClick={() => switchToMode("rich")}
               className={cn(
                 "border-l px-2.5 py-1 transition-colors",
                 activeNote?.mode === "rich"
@@ -894,8 +975,8 @@ export default function EditorPad() {
             ))}
           </div>
 
-          {/* Word wrap — plain mode only */}
-          {activeNote?.mode === "plain" && (
+          {/* Word wrap — plain and markdown write mode */}
+          {(activeNote?.mode === "plain" || (activeNote?.mode === "markdown" && mdView === "write")) && (
             <button
               type="button"
               onClick={() => setWordWrap((v) => !v)}
@@ -945,7 +1026,7 @@ export default function EditorPad() {
               type="button"
               onClick={handleDownload}
               className="rounded border p-1.5 transition-colors hover:bg-accent"
-              title={activeNote?.mode === "rich" ? "Download as .html" : "Download as .txt"}
+              title={activeNote?.mode === "rich" ? "Download as .html" : activeNote?.mode === "markdown" ? "Download as .md" : "Download as .txt"}
             >
               <Download className="h-3.5 w-3.5" />
             </button>
@@ -966,6 +1047,54 @@ export default function EditorPad() {
         {activeNote?.mode === "rich" && (
           <div className="border-b px-3 py-2">
             <RichToolbar editor={editor} />
+          </div>
+        )}
+
+        {/* ── Markdown write/preview/split sub-toolbar ─────────────────────── */}
+        {activeNote?.mode === "markdown" && (
+          <div className="flex items-center gap-1.5 border-b px-3 py-1.5">
+            <div className="flex overflow-hidden rounded-md border text-xs">
+              <button
+                type="button"
+                onClick={() => handleMdViewChange("write")}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 transition-colors",
+                  mdView === "write"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent",
+                )}
+              >
+                <Pencil className="h-3 w-3" />
+                Write
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMdViewChange("preview")}
+                className={cn(
+                  "border-l flex items-center gap-1 px-2.5 py-1 transition-colors",
+                  mdView === "preview"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent",
+                )}
+              >
+                <Eye className="h-3 w-3" />
+                Preview
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMdSplit((v) => !v)}
+              className={cn(
+                "hidden md:flex items-center gap-1 rounded border px-2.5 py-1 text-xs transition-colors",
+                mdSplit
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent",
+              )}
+              title="Split view — editor and preview side by side"
+            >
+              <Columns2 className="h-3 w-3" />
+              Split
+            </button>
           </div>
         )}
 
@@ -1021,7 +1150,7 @@ export default function EditorPad() {
             Create a note to start writing.
           </div>
         ) : (
-          <div className={cn("flex-1 overflow-auto", fontSizeClass)}>
+          <div className={cn("flex-1 overflow-hidden", fontSizeClass)}>
             {activeNote.mode === "plain" ? (
               <textarea
                 value={activeNote.content}
@@ -1033,6 +1162,32 @@ export default function EditorPad() {
                 )}
                 spellCheck={false}
               />
+            ) : activeNote.mode === "markdown" ? (
+              <div className={cn("flex h-full overflow-hidden", mdSplit ? "md:flex-row" : "flex-col")}>
+                {(mdView === "write" || mdSplit) && (
+                  <textarea
+                    value={activeNote.content}
+                    onChange={(e) => handleMarkdownChange(e.target.value)}
+                    placeholder="Write markdown here…"
+                    className={cn(
+                      "resize-none border-none bg-transparent p-4 font-mono focus:outline-none",
+                      mdSplit ? "h-full w-full md:w-1/2 md:border-r" : "h-full w-full",
+                      wordWrap ? "whitespace-pre-wrap break-words" : "whitespace-pre",
+                    )}
+                    spellCheck={false}
+                  />
+                )}
+                {(mdView === "preview" || mdSplit) && (
+                  <div className={cn(
+                    "editorpad-md-preview overflow-y-auto p-4",
+                    mdSplit ? "h-full w-full md:w-1/2" : "h-full w-full",
+                  )}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {activeNote.content}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="editorpad-rich h-full p-4">
                 <EditorContent editor={editor} />
@@ -1048,7 +1203,7 @@ export default function EditorPad() {
           <span>{stats.lines} lines</span>
           {activeNote && (
             <span className="ml-auto">
-              {activeNote.mode === "plain" ? "Plain text" : "Rich text"}
+              {activeNote.mode === "plain" ? "Plain text" : activeNote.mode === "markdown" ? "Markdown" : "Rich text"}
             </span>
           )}
         </div>
