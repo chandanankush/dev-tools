@@ -125,7 +125,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-4 py-2 text-sm font-medium text-muted-foreground backdrop-blur transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
             >
               <Linkedin className="h-4 w-4" aria-hidden />
-              Chandan Singh — Mobile Engineer
+              Chandan Singh — Mobile & Website Engineer
             </a>
           </div>
         </footer>
