@@ -44,7 +44,7 @@ const iconConfig: Record<string, { icon: LucideIcon; color: string; bg: string }
   default:     { icon: Sparkles,    color: "text-primary",     bg: "bg-primary/10"     },
 };
 
-export function ToolCard({ slug, title, description, icon, tags, className }: ToolCardProps) {
+export function ToolCard({ slug, title, description, icon, className }: ToolCardProps) {
   const cfg = icon ? (iconConfig[icon] ?? iconConfig.default) : iconConfig.default;
   const { icon: Icon, color, bg } = cfg;
 

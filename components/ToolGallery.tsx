@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import type { ToolSummary } from "@/lib/tools.config";
 import { searchTools } from "@/lib/search";
 import { ToolCard } from "./ToolCard";
-import { cn } from "@/lib/utils";
 
 interface ToolGalleryProps {
   tools: ToolSummary[];
