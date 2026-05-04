@@ -70,18 +70,6 @@ export function ToolCard({ slug, title, description, icon, tags, className }: To
         <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">{description}</p>
       </div>
 
-      {tags && tags.length > 0 && (
-        <div className="mt-auto flex flex-wrap gap-1">
-          {tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
     </Link>
   );
 }

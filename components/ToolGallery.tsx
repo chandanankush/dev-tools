@@ -16,13 +16,22 @@ interface ToolGalleryProps {
 export function ToolGallery({ tools }: ToolGalleryProps) {
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [showTags, setShowTags] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
     tools.forEach((tool) => tool.tags.forEach((tag) => tagSet.add(tag)));
     return Array.from(tagSet).sort();
   }, [tools]);
+
+  // Tags to show: filtered by query when typing, all tags when focused with no query
+  const suggestedTags = useMemo(() => {
+    if (!query) return allTags;
+    const q = query.toLowerCase();
+    return allTags.filter((tag) => tag.toLowerCase().includes(q));
+  }, [allTags, query]);
 
   // Press "/" to focus search
   useEffect(() => {
@@ -48,6 +57,23 @@ export function ToolGallery({ tools }: ToolGalleryProps) {
     return results;
   }, [query, tools, activeTag]);
 
+  const handleFocus = () => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    setShowTags(true);
+  };
+
+  const handleBlur = () => {
+    // Delay hiding so tag button clicks register first
+    blurTimerRef.current = setTimeout(() => setShowTags(false), 150);
+  };
+
+  const handleTagClick = (tag: string) => {
+    setActiveTag(activeTag === tag ? null : tag);
+    inputRef.current?.focus();
+  };
+
+  const tagsVisible = showTags || activeTag !== null;
+
   return (
     <section className="space-y-5">
       {/* Search bar */}
@@ -57,6 +83,8 @@ export function ToolGallery({ tools }: ToolGalleryProps) {
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholder="Search tools…"
           aria-label="Search tools"
           className="h-11 pl-10 pr-16 text-sm"
@@ -76,34 +104,35 @@ export function ToolGallery({ tools }: ToolGalleryProps) {
         )}
       </div>
 
-      {/* Tag filters */}
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          onClick={() => setActiveTag(null)}
-          className={cn(
-            "rounded-md border px-3 py-1 font-mono text-xs transition-colors",
-            activeTag === null
-              ? "border-primary bg-primary/10 text-primary"
-              : "border-border text-foreground/70 hover:text-foreground hover:bg-muted/40"
+      {/* Tag suggestions — visible only when search is focused or a tag is active */}
+      {tagsVisible && (
+        <div className="flex flex-wrap gap-1.5">
+          {activeTag && (
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setActiveTag(null)}
+              className="rounded-md border border-primary bg-primary/10 px-3 py-1 font-mono text-xs text-primary transition-colors hover:bg-primary/20"
+            >
+              {activeTag} ×
+            </button>
           )}
-        >
-          all
-        </button>
-        {allTags.map((tag) => (
-          <button
-            key={tag}
-            onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-            className={cn(
-              "rounded-md border px-3 py-1 font-mono text-xs transition-colors",
-              activeTag === tag
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border text-foreground/70 hover:text-foreground hover:bg-muted/40"
-            )}
-          >
-            {tag}
-          </button>
-        ))}
-      </div>
+          {suggestedTags
+            .filter((tag) => tag !== activeTag)
+            .map((tag) => (
+              <button
+                key={tag}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleTagClick(tag)}
+                className="rounded-md border border-border px-3 py-1 font-mono text-xs text-foreground/70 transition-colors hover:bg-muted/40 hover:text-foreground"
+              >
+                {tag}
+              </button>
+            ))}
+          {suggestedTags.length === 0 && (
+            <span className="font-mono text-xs text-muted-foreground">No matching tags</span>
+          )}
+        </div>
+      )}
 
       {/* Result count */}
       <p className="text-xs text-muted-foreground">
