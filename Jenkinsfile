@@ -23,7 +23,7 @@ pipeline {
     )
     booleanParam(
       name: 'DEPLOY_REMOTE',
-      defaultValue: false,
+      defaultValue: true,
       description: 'Transfer and run the built image on a remote Docker host'
     )
     string(
@@ -50,11 +50,6 @@ pipeline {
       name: 'REMOTE_RUN_ARGS',
       defaultValue: '',
       description: 'Additional docker run flags (space-delimited)'
-    )
-    string(
-      name: 'REMOTE_USERNAME',
-      defaultValue: '',
-      description: 'SSH username on the remote host'
     )
     string(
       name: 'SSH_CREDENTIALS_ID',
@@ -145,7 +140,6 @@ pipeline {
           def envArgsRaw = params.REMOTE_ENV_VARS ?: ''
           def envArgs = envArgsRaw.replace('${SITE_URL}', params.SITE_URL ?: '')
           def runArgs = params.REMOTE_RUN_ARGS ?: ''
-          def remoteUser = params.REMOTE_USERNAME?.trim()
           def sshCredsId = params.SSH_CREDENTIALS_ID?.trim() ?: 'remote-ssh-key'
 
           if (!remoteHost) {
@@ -156,9 +150,6 @@ pipeline {
           }
           if (!remotePortMapping) {
             error('REMOTE_PORT_MAPPING must be provided when DEPLOY_REMOTE is enabled')
-          }
-          if (!remoteUser) {
-            error('REMOTE_USERNAME must be provided')
           }
 
           def envArgsTrimmed = envArgs?.trim()
@@ -182,12 +173,13 @@ pipeline {
 
           def remoteRunCommand = runCommandParts.join(' ')
 
-          sshagent(credentials: [sshCredsId]) {
+          withCredentials([sshUserPrivateKey(credentialsId: sshCredsId, keyFileVariable: 'DEPLOY_KEY', usernameVariable: 'DEPLOY_USER')]) {
             sh label: 'Deploy image to remote host', script: """
               set -euo pipefail
               export PATH="/usr/local/bin:/opt/homebrew/bin:\$PATH"
 
               IMAGE_TAG="${imageTag}"
+              SSH_TARGET="\${DEPLOY_USER}@${remoteHost}"
 
               echo "Verifying local image: \$IMAGE_TAG"
               docker image inspect "\$IMAGE_TAG" >/dev/null 2>&1 || { echo "Image not found locally (\$IMAGE_TAG)"; exit 1; }
@@ -197,10 +189,10 @@ pipeline {
               ssh-keyscan -H "${remoteHost}" >> ~/.ssh/known_hosts
 
               echo "Saving and transferring image to ${remoteHost}"
-              docker save "\$IMAGE_TAG" | gzip | ssh "${remoteUser}@${remoteHost}" 'gunzip | docker load'
+              docker save "\$IMAGE_TAG" | gzip | ssh -i "\$DEPLOY_KEY" "\$SSH_TARGET" 'gunzip | docker load'
 
               echo "Restarting container ${remoteApp} on ${remoteHost}"
-              ssh "${remoteUser}@${remoteHost}" 'bash -s' <<"REMOTE_SCRIPT"
+              ssh -i "\$DEPLOY_KEY" "\$SSH_TARGET" 'bash -s' <<"REMOTE_SCRIPT"
 set -euo pipefail
 docker stop ${remoteApp} || true
 docker rm ${remoteApp} || true
