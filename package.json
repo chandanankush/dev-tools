@@ -43,7 +43,12 @@
       "esbuild",
       "sharp",
       "unrs-resolver"
-    ]
+    ],
+    "overrides": {
+      "postcss": "^8.5.14",
+      "flatted": "^3.4.2",
+      "minimatch": "^9.0.9"
+    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
