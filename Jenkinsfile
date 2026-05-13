@@ -11,16 +11,6 @@ pipeline {
       defaultValue: 'https://mopplications.com',
       description: 'Public URL for metadata (sets NEXT_PUBLIC_SITE_URL)'
     )
-    string(
-      name: 'IMAGE_NAME',
-      defaultValue: 'ghcr.io/your-org/dev-tools',
-      description: 'Target image name (registry/namespace/repository)'
-    )
-    booleanParam(
-      name: 'PUSH_IMAGE',
-      defaultValue: false,
-      description: 'Push built image to the registry (requires credentials)'
-    )
     booleanParam(
       name: 'DEPLOY_REMOTE',
       defaultValue: true,
@@ -61,8 +51,8 @@ pipeline {
   environment {
     DOCKER_BUILDKIT = '1'
     BUILDX_INSTANCE = 'multiarch'
-    PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
-    REGISTRY_CREDENTIALS_ID = 'registry-creds'
+    IMAGE_NAME      = 'dev-tools'
+    PATH            = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
   }
 
   stages {
@@ -108,32 +98,13 @@ pipeline {
       }
     }
 
-    stage('Push Image') {
-      when {
-        expression { params.PUSH_IMAGE }
-      }
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'registry-creds', usernameVariable: 'REGISTRY_USERNAME', passwordVariable: 'REGISTRY_PASSWORD')]) {
-          sh '''
-            echo "${REGISTRY_PASSWORD}" | docker login "$(echo ${IMAGE_NAME} | cut -d/ -f1)" --username "${REGISTRY_USERNAME}" --password-stdin
-            docker buildx build \
-              --platform linux/arm64/v8 \
-              --build-arg NEXT_PUBLIC_SITE_URL=${SITE_URL} \
-              --tag ${IMAGE_NAME}:${BUILD_NUMBER} \
-              --push \
-              .
-          '''
-        }
-      }
-    }
-
     stage('Deploy Remote') {
       when {
         expression { params.DEPLOY_REMOTE }
       }
       steps {
         script {
-          def imageTag = "${params.IMAGE_NAME}:${env.BUILD_NUMBER}"
+          def imageTag = "${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
           def remoteHost = params.REMOTE_HOST?.trim()
           def remoteApp = params.REMOTE_APP_NAME?.trim()
           def remotePortMapping = params.REMOTE_PORT_MAPPING?.trim()
