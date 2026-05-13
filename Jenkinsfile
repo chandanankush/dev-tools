@@ -54,12 +54,12 @@ pipeline {
     string(
       name: 'REMOTE_USERNAME',
       defaultValue: '',
-      description: 'Remote SSH username (used only when credentials ID is blank)'
+      description: 'SSH username on the remote host'
     )
-    password(
-      name: 'REMOTE_PASSWORD',
-      defaultValue: '',
-      description: 'Remote SSH password (used only when credentials ID is blank)'
+    string(
+      name: 'SSH_CREDENTIALS_ID',
+      defaultValue: 'remote-ssh-key',
+      description: 'Jenkins credential ID for the SSH private key used to authenticate to the remote host'
     )
   }
 
@@ -145,8 +145,8 @@ pipeline {
           def envArgsRaw = params.REMOTE_ENV_VARS ?: ''
           def envArgs = envArgsRaw.replace('${SITE_URL}', params.SITE_URL ?: '')
           def runArgs = params.REMOTE_RUN_ARGS ?: ''
-          def remoteUsernameParam = params.REMOTE_USERNAME?.trim()
-          def remotePasswordParam = params.REMOTE_PASSWORD
+          def remoteUser = params.REMOTE_USERNAME?.trim()
+          def sshCredsId = params.SSH_CREDENTIALS_ID?.trim() ?: 'remote-ssh-key'
 
           if (!remoteHost) {
             error('REMOTE_HOST must be provided when DEPLOY_REMOTE is enabled')
@@ -157,11 +157,8 @@ pipeline {
           if (!remotePortMapping) {
             error('REMOTE_PORT_MAPPING must be provided when DEPLOY_REMOTE is enabled')
           }
-          if (!remoteUsernameParam) {
+          if (!remoteUser) {
             error('REMOTE_USERNAME must be provided')
-          }
-          if (!remotePasswordParam) {
-            error('REMOTE_PASSWORD must be provided')
           }
 
           def envArgsTrimmed = envArgs?.trim()
@@ -185,37 +182,32 @@ pipeline {
 
           def remoteRunCommand = runCommandParts.join(' ')
 
-          def executeDeploy = { String remoteUserValue, String remotePassValue ->
-            withEnv([
-              "REMOTE_USER=${remoteUserValue}",
-              "REMOTE_PASS=${remotePassValue}"
-            ]) {
-              sh label: 'Deploy image to remote host', script: """
-                set -euo pipefail
-                export PATH="/usr/local/bin:/opt/homebrew/bin:\$PATH"
+          sshagent(credentials: [sshCredsId]) {
+            sh label: 'Deploy image to remote host', script: """
+              set -euo pipefail
+              export PATH="/usr/local/bin:/opt/homebrew/bin:\$PATH"
 
-                IMAGE_TAG="${imageTag}"
+              IMAGE_TAG="${imageTag}"
 
-                command -v sshpass >/dev/null 2>&1 || { echo "❌ sshpass is required but not installed on the Jenkins agent"; exit 1; }
+              echo "Verifying local image: \$IMAGE_TAG"
+              docker image inspect "\$IMAGE_TAG" >/dev/null 2>&1 || { echo "Image not found locally (\$IMAGE_TAG)"; exit 1; }
 
-                echo "🚀 Deploying image: \$IMAGE_TAG"
-                docker image inspect "\$IMAGE_TAG" >/dev/null 2>&1 || { echo "❌ Image not found locally (\$IMAGE_TAG)"; exit 1; }
+              echo "Registering remote host key"
+              mkdir -p ~/.ssh && chmod 700 ~/.ssh
+              ssh-keyscan -H "${remoteHost}" >> ~/.ssh/known_hosts
 
-                echo "💾 Saving and transferring image to ${remoteHost}"
-                docker save "\$IMAGE_TAG" | gzip | sshpass -p "\$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "\${REMOTE_USER}@${remoteHost}" 'gunzip | docker load'
+              echo "Saving and transferring image to ${remoteHost}"
+              docker save "\$IMAGE_TAG" | gzip | ssh "${remoteUser}@${remoteHost}" 'gunzip | docker load'
 
-                echo "🔄 Restarting container ${remoteApp} on ${remoteHost}"
-                sshpass -p "\$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "\${REMOTE_USER}@${remoteHost}" 'bash -s' <<"REMOTE_SCRIPT"
+              echo "Restarting container ${remoteApp} on ${remoteHost}"
+              ssh "${remoteUser}@${remoteHost}" 'bash -s' <<"REMOTE_SCRIPT"
 set -euo pipefail
 docker stop ${remoteApp} || true
 docker rm ${remoteApp} || true
 ${remoteRunCommand}
 REMOTE_SCRIPT
-              """.stripIndent()
-            }
+            """.stripIndent()
           }
-
-          executeDeploy(remoteUsernameParam, remotePasswordParam)
         }
       }
     }
