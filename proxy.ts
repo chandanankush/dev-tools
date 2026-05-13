@@ -6,7 +6,7 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const isDevelopment = process.env.NODE_ENV !== "production";
   const nonce = generateNonce();
 
