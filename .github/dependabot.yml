@@ -1,0 +1,47 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "chandanankush"
+    labels:
+      - "dependencies"
+      - "security"
+    groups:
+      next-js:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+      tiptap:
+        patterns:
+          - "@tiptap/*"
+      testing:
+        patterns:
+          - "@testing-library/*"
+          - "vitest"
+          - "jsdom"
+      types:
+        patterns:
+          - "@types/*"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    reviewers:
+      - "chandanankush"
+    labels:
+      - "dependencies"
+      - "security"
