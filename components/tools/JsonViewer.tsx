@@ -20,6 +20,22 @@ type TreeNodeProps = {
   isLast: boolean;
 };
 
+// Tailwind pl-* classes for each depth level (depth * 20px). Full strings required so
+// Tailwind's content scanner keeps them. Capped at index 10 (200px) for extreme nesting.
+const JSON_INDENT = [
+  '',           // 0:  0px
+  'pl-5',       // 1:  20px
+  'pl-10',      // 2:  40px
+  'pl-[60px]',  // 3:  60px
+  'pl-20',      // 4:  80px
+  'pl-[100px]', // 5:  100px
+  'pl-[120px]', // 6:  120px
+  'pl-[140px]', // 7:  140px
+  'pl-[160px]', // 8:  160px
+  'pl-[180px]', // 9:  180px
+  'pl-[200px]', // 10: 200px
+] as const;
+
 function JsonTreeNode({
   value,
   path,
@@ -58,11 +74,11 @@ function JsonTreeNode({
     return null;
   };
 
+  const indentClass = JSON_INDENT[Math.min(depth, 10)] ?? 'pl-[200px]';
+
   return (
     <div className="font-mono text-[13px] leading-5">
-      <div className="group flex items-start hover:bg-gray-100 dark:hover:bg-gray-800">
-        {/* Indentation */}
-        <div style={{ width: depth * 20 }} className="flex-shrink-0" />
+      <div className={`group flex items-start hover:bg-gray-100 dark:hover:bg-gray-800${indentClass ? ` ${indentClass}` : ''}`}>
 
         {/* Icon / Spacer */}
         <div className="mr-1 mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center">
@@ -137,8 +153,7 @@ function JsonTreeNode({
               />
             ))}
           {/* Closing Brace/Bracket */}
-          <div className="group flex items-start hover:bg-gray-100 dark:hover:bg-gray-800">
-            <div style={{ width: depth * 20 }} className="flex-shrink-0" />
+          <div className={`group flex items-start hover:bg-gray-100 dark:hover:bg-gray-800${indentClass ? ` ${indentClass}` : ''}`}>
             <div className="mr-1 flex h-4 w-4 flex-shrink-0" /> {/* Spacer for icon alignment */}
             <div className="text-gray-800 dark:text-gray-300">
               {isArray ? "]" : "}"}

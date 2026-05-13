@@ -400,18 +400,33 @@ function JsonDiffView({
   );
 }
 
+// Tailwind pl-* classes for calc(0.75rem + indent * 1.25rem). Full strings required so
+// Tailwind's content scanner keeps them. Capped at index 9 for extreme nesting.
+const COMPARE_INDENT = [
+  'pl-3',          // 0: 0.75rem
+  'pl-8',          // 1: 2rem
+  'pl-[3.25rem]',  // 2: 3.25rem
+  'pl-[4.5rem]',   // 3: 4.5rem
+  'pl-[5.75rem]',  // 4: 5.75rem
+  'pl-28',         // 5: 7rem
+  'pl-[8.25rem]',  // 6: 8.25rem
+  'pl-[9.5rem]',   // 7: 9.5rem
+  'pl-[10.75rem]', // 8: 10.75rem
+  'pl-48',         // 9: 12rem
+] as const;
+
 function DiffCell({ cell, side }: { cell: SideBySideCell; side: "left" | "right" }) {
   const isLeft = side === "left";
   return (
     <div
       className={cn(
-        "min-h-[1.5rem] py-0.5 leading-6",
+        "min-h-[1.5rem] py-0.5 pr-3 leading-6",
         isLeft && "border-r border-border/60",
         cell.highlight === "removed" && "bg-red-50 dark:bg-red-950/40",
         cell.highlight === "added" && "bg-emerald-50 dark:bg-emerald-950/40",
         cell.highlight === "empty" && "bg-muted/40",
+        COMPARE_INDENT[Math.min(cell.indent, 9)] ?? 'pl-48',
       )}
-      style={{ paddingLeft: `calc(0.75rem + ${cell.indent * 1.25}rem)`, paddingRight: "0.75rem" }}
     >
       {cell.highlight === "empty" ? null : (
         <>

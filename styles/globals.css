@@ -58,6 +58,14 @@ img {
   @apply select-none;
 }
 
+/* ─── Page backgrounds ──────────────────────────────────────────────────────── */
+
+.dot-grid-bg {
+  background-image: radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0);
+  background-size: 28px 28px;
+  opacity: 0.5;
+}
+
 /* ─── EditorPad — Tiptap / ProseMirror styles ─────────────────────────────── */
 
 .editorpad-rich .editorpad-prosemirror {

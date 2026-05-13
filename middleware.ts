@@ -18,7 +18,7 @@ export function middleware(request: NextRequest) {
     isDevelopment
       ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`
       : `script-src 'nonce-${nonce}' 'strict-dynamic'`,
-    "style-src 'self' 'unsafe-inline'",
+    `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data:",
     "font-src 'self'",
     isDevelopment ? "connect-src 'self' ws: wss:" : "connect-src 'self'",

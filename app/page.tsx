@@ -8,13 +8,7 @@ export default function HomePage() {
       {/* Dot-grid background */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0)",
-          backgroundSize: "28px 28px",
-          opacity: 0.5,
-        }}
+        className="dot-grid-bg pointer-events-none absolute inset-0 -z-10"
       />
       {/* Gradient orb */}
       <div
