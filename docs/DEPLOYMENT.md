@@ -8,7 +8,7 @@ This project ships as a **Docker container** built by a **Jenkins CI/CD pipeline
 
 ```
 Dockerfile (multi-stage)
-├── base      node:20-alpine + pnpm via corepack
+├── base      node:26-alpine + corepack (installed via npm — required for Node 25+)
 ├── deps      pnpm install --frozen-lockfile
 ├── builder   next build  (standalone output)
 └── runner    node server.js  (port 3000)
@@ -43,15 +43,15 @@ File: `Jenkinsfile`
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `SITE_URL` | string | `https://mopplications.com` | Sets `NEXT_PUBLIC_SITE_URL` at build time |
-| `IMAGE_NAME` | string | `ghcr.io/your-org/dev-tools` | Full image reference (registry/namespace/repo) |
-| `PUSH_IMAGE` | boolean | `false` | Push built image to registry |
-| `DEPLOY_REMOTE` | boolean | `false` | SSH + deploy to remote Docker host |
+| `DEPLOY_REMOTE` | boolean | `true` | SSH + deploy to remote Docker host after build |
 | `REMOTE_HOST` | string | `pios.local` | Hostname or IP of target machine |
 | `REMOTE_APP_NAME` | string | `dev-tools` | Docker container name on remote |
 | `REMOTE_PORT_MAPPING` | string | `5000:3000` | `<host>:<container>` port mapping |
 | `REMOTE_ENV_VARS` | string | `-e NEXT_PUBLIC_SITE_URL=...` | Extra env flags for `docker run` |
-| `REMOTE_USERNAME` | string | — | SSH username |
-| `REMOTE_PASSWORD` | password | — | SSH password |
+| `REMOTE_RUN_ARGS` | string | — | Additional `docker run` flags |
+| `SSH_CREDENTIALS_ID` | string | `remote-ssh-key` | Jenkins credential ID (SSH Username with private key) |
+
+> `IMAGE_NAME` is a fixed pipeline environment variable (`dev-tools`) — not a parameter. There is no registry push step; the image is streamed directly to the remote host over SSH.
 
 ### Pipeline stages
 
@@ -59,22 +59,31 @@ File: `Jenkinsfile`
 flowchart LR
     A[Checkout] --> B[Repo Info]
     B --> C[Setup Buildx]
-    C --> D[Build Image\nlinux/arm64/v8]
-    D --> E{PUSH_IMAGE?}
-    E -- Yes --> F[Push to Registry\nusing registry-creds]
-    E -- No --> G{DEPLOY_REMOTE?}
-    F --> G
-    G -- Yes --> H[SSH to REMOTE_HOST\ndocker stop + rm\ndocker run --restart unless-stopped]
-    G -- No --> I[Done]
-    H --> I
+    C --> D[Build Image\nlinux/arm64/v8\n--load]
+    D --> E{DEPLOY_REMOTE?}
+    E -- Yes --> F[docker save | gzip\n| ssh | gunzip | docker load]
+    F --> G[SSH: docker stop + rm\ndocker run --restart unless-stopped]
+    E -- No --> H[Done]
+    G --> H
 ```
 
 ### Credentials required in Jenkins
 
 | ID | Type | Used by |
 |---|---|---|
-| `registry-creds` | Username/Password | Push Image stage (docker login) |
-| `REMOTE_USERNAME` / `REMOTE_PASSWORD` | Pipeline parameters | Deploy Remote stage (SSH) |
+| `remote-ssh-key` (configurable via `SSH_CREDENTIALS_ID`) | SSH Username with private key | Deploy Remote stage — Jenkins extracts both SSH username and key file path automatically |
+
+> No registry credentials needed. The image is saved locally after build and piped directly to the remote host:
+> `docker save "$IMAGE_TAG" | gzip | ssh -i "$DEPLOY_KEY" "$SSH_TARGET" 'gunzip | docker load'`
+
+### SSH key setup
+
+1. Generate a key on the build machine: `ssh-keygen -t ed25519 -C "jenkins-deploy"`
+2. Copy the public key to the remote host: `ssh-copy-id -i ~/.ssh/id_ed25519.pub user@pios.local`
+3. In Jenkins → Credentials → Add → **SSH Username with private key**
+   - Username: the remote host's OS user (e.g. `pi`)
+   - Private key: paste the contents of `~/.ssh/id_ed25519`
+4. Note the credential ID and set it as `SSH_CREDENTIALS_ID` in the pipeline.
 
 ---
 
@@ -120,28 +129,25 @@ App is available at `http://<host>:5000`.
 
 ```mermaid
 flowchart TD
-    subgraph CI["Jenkins CI (build machine)"]
+    subgraph CI["Jenkins CI (Mac, Apple Silicon)"]
         A[git push / manual trigger] --> B[Checkout SCM]
-        B --> C[docker buildx\nlinux/arm64/v8]
-        C --> D{Push?}
-        D -- Yes --> E[ghcr.io registry]
-        D -- No --> F[Image loaded locally]
+        B --> C[docker buildx\nlinux/arm64/v8\n--load]
+        C --> F[Image loaded locally]
     end
 
-    subgraph Remote["Remote Host (e.g. pios.local)"]
+    subgraph Remote["Raspberry Pi (pios.local)"]
         G[docker stop dev-tools]
         G --> H[docker rm dev-tools]
         H --> I[docker run\n--restart unless-stopped\n-p 5000:3000]
-        I --> J[Next.js standalone\nNode 20 server.js\nport 3000]
+        I --> J[Next.js standalone\nNode 26 server.js\nport 3000]
     end
 
     subgraph Internet
-        K[User Browser] -->|HTTPS| L[Reverse Proxy\nnginx / Caddy]
+        K[User Browser] -->|HTTPS| L[Cloudflare Proxy]
         L -->|http :5000| J
     end
 
-    F -- SSH tar pipe --> G
-    E -- docker pull --> G
+    F -- "docker save | gzip | ssh | gunzip | docker load" --> G
 ```
 
 ---

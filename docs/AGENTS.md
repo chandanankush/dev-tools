@@ -9,9 +9,9 @@ This document defines conventions for AI coding agents (GitHub Copilot, Claude, 
 | Property | Value |
 |---|---|
 | **Live URL** | https://mopplications.com |
-| **Stack** | Next.js 15 (App Router), TypeScript, Tailwind CSS, Tiptap v3, Vitest |
+| **Stack** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Tiptap v3, Vitest 4 |
 | **Package manager** | pnpm |
-| **Node version** | 20 (LTS) |
+| **Node version** | 26 |
 | **Runtime target** | Browser-first; server only for `/api/expand-url` |
 
 ---
@@ -77,7 +77,7 @@ Quick agent checklist:
 
 - Runner: **Vitest** + `@testing-library/react` + `jsdom`.
 - Setup file: `tests/setup.ts` — mocks `next/image`, runs `cleanup` after each test.
-- 13 test files, 84+ tests across all tools (39 for basic-calculator alone).
+- 13 test files, 97 tests across all tools (39 for basic-calculator alone).
 - Heavy DOM packages (ProseMirror/Tiptap, canvas, WebGL) **must be mocked** — jsdom does not support them.
 - Mocks go at the top of the test file using `vi.mock(...)` before any imports of the component.
 - Use `vi.stubGlobal("localStorage", ...)` for localStorage — do not rely on jsdom's built-in implementation for persistence tests.
@@ -188,6 +188,51 @@ PORT=3001 pnpm run dev
 # ❌ fails
 pnpm run dev -- -p 3001
 ```
+
+---
+
+### 9. Tailwind CSS v4 — CSS-first config
+
+There is no `tailwind.config.ts`. All configuration lives in `styles/globals.css`.
+
+- Design tokens go in `@theme inline { ... }` — the `inline` keyword is required for CSS-var references to resolve at runtime.
+- Dark mode uses `@custom-variant dark (&:where(.dark, .dark *))` — not a JS config option.
+- Animations use `tw-animate-css` (imported at the top) — not `tailwindcss-animate`.
+- The PostCSS plugin is `@tailwindcss/postcss` — not `tailwindcss`.
+- Container centering is written as plain CSS media query rules — there is no `theme.container` config equivalent.
+
+**Never add a `tailwind.config.ts` or `tailwind.config.js`** — it is incompatible with v4's CSS-first setup.
+
+---
+
+### 10. Dependabot security alerts — pnpm overrides
+
+For vulnerable transitive dependencies that can't be fixed by upgrading a direct dep, use pnpm overrides in `package.json`:
+
+```json
+"pnpm": {
+  "overrides": {
+    "vulnerable-package": "^safe-version"
+  }
+}
+```
+
+Run `pnpm install` to regenerate the lockfile and push. Dependabot re-scans within a few hours.
+
+**Dev-only transitive deps** (e.g. ESLint's `flatted`, `minimatch`) carry zero production risk — they never enter the Docker image. Still worth overriding to keep the GitHub security dashboard clean.
+
+---
+
+### 11. Major dependency upgrades — clean branch strategy
+
+When upgrading a major version with a large lockfile diff (React, Next.js, etc.), **do not rebase the Dependabot PR**. Instead:
+1. Close the Dependabot PR.
+2. Create a clean branch from `main`.
+3. Apply the version changes manually.
+4. Run `pnpm install`, `pnpm test`, `pnpm build`.
+5. Open a PR from the clean branch.
+
+Rebase on large lockfile changes produces unresolvable conflicts.
 
 ---
 

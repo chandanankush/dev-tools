@@ -8,7 +8,7 @@ Thanks for your interest in contributing. This guide covers everything you need 
 
 | Tool | Version |
 |---|---|
-| Node.js | 20 LTS |
+| Node.js | 26 |
 | pnpm | 10+ |
 | Docker | 24+ (optional, for deployment testing) |
 
@@ -131,7 +131,7 @@ All three must be clean before opening a PR.
 
 ## Pull request checklist
 
-- [ ] `pnpm test` passes (all 61+ tests green)
+- [ ] `pnpm test` passes (all 97 tests green)
 - [ ] `pnpm build` succeeds with no type errors
 - [ ] New tool has a test file with ≥ 3 meaningful test cases
 - [ ] `README.md`, `testcase.md`, and `docs/ARCHITECTURE.md` updated

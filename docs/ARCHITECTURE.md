@@ -9,7 +9,7 @@ Live at **https://mopplications.com**
 Dev Toolkit is a **browser-first** developer utility suite. The architecture follows a single guiding constraint: **all tool logic runs on the client; the server exists only to serve the Next.js app and proxy redirect-following for the URL Expander.**
 
 ```
-Browser                             Server (Node 20)
+Browser                             Server (Node 26)
 ──────────────────────────          ──────────────────────────────
 All tool state (localStorage)  ←→  Next.js App Router (standalone)
 All tool computation                /api/expand-url  ← only server-side logic
@@ -22,17 +22,17 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 
 | Layer | Technology | Notes |
 |---|---|---|
-| Framework | Next.js 15 (App Router) | `output: "standalone"` for Docker |
+| Framework | Next.js 16 (App Router) | `output: "standalone"` for Docker |
 | Language | TypeScript (strict) | |
-| Styling | Tailwind CSS v3 | Custom HSL design tokens, dark mode via `.dark` class |
+| Styling | Tailwind CSS v4 | CSS-first config via `@theme inline`, dark mode via `@custom-variant dark` |
 | UI primitives | shadcn/ui (Radix) | Button, Input, Label, Textarea |
-| Icons | lucide-react | |
+| Icons | lucide-react 1.x | Brand icons (Github, Linkedin) replaced with inline SVGs |
 | Rich text | Tiptap v3 (ProseMirror) | CSP-safe, no eval |
 | Search | Fuse.js v7 | Fuzzy search across tool titles and tags |
-| State | React `useState` / `useReducer` | No global state manager |
+| State | React 19 `useState` / `useReducer` | No global state manager |
 | Persistence | `localStorage` only | No database, no sessions |
 | Package manager | pnpm | Strict lockfile (`--frozen-lockfile` in CI) |
-| Testing | Vitest + @testing-library/react | jsdom environment |
+| Testing | Vitest 4 + @testing-library/react | jsdom environment, Vite 8 peer dep required |
 
 ---
 
@@ -89,7 +89,7 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │   └── utils.ts                 Tailwind cn() helper
 │
 ├── styles/
-│   └── globals.css              Tailwind base + HSL tokens + Tiptap ProseMirror styles
+│   └── globals.css              Tailwind v4 CSS-first config (@theme inline, @custom-variant dark) + HSL tokens + Tiptap styles
 │
 ├── tests/
 │   ├── setup.ts                 Vitest global setup (next/image mock, cleanup)
@@ -98,7 +98,7 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 ├── middleware.ts                 CSP nonce generation + security response headers
 ├── next.config.ts                standalone output, esmExternals
 ├── Dockerfile                    Multi-stage build (deps → builder → runner)
-└── Jenkinsfile                   CI/CD pipeline (build → push → deploy)
+└── Jenkinsfile                   CI/CD pipeline (build → SSH deploy to Raspberry Pi, no registry)
 ```
 
 ---
@@ -271,8 +271,8 @@ stateDiagram-v2
     Renaming --> ActiveNote : Enter / blur (commit)
     Renaming --> ActiveNote : Escape (cancel)
 
-    ActiveNote --> SwitchMode : click Plain/Rich toggle
-    SwitchMode --> ActiveNote : content converted, mode saved
+    ActiveNote --> SwitchMode : click Plain/Rich/Markdown toggle
+    SwitchMode --> ActiveNote : content converted, mode saved (plain/rich/markdown)
 
     ActiveNote --> NoNotes : delete last note
     ActiveNote --> ActiveNote : select different note
@@ -306,6 +306,7 @@ flowchart TD
 | All tools run in the browser | Zero server costs for compute; no data leaves user's machine |
 | Single `tools.config.ts` registry | One place to add/remove tools; routing, sitemap, search all auto-update |
 | Tiptap v3 for rich text | ProseMirror-based, CSP-safe (no eval), MIT licence, table support |
+| Tailwind CSS v4 (CSS-first) | `@theme inline` replaces `tailwind.config.ts`; `@custom-variant dark` handles class-based dark mode; `tw-animate-css` replaces `tailwindcss-animate` |
 | `output: standalone` | Minimal Docker image — only ships the Node server + `.next/standalone` |
 | Nonce-based CSP over hash-based | Per-request nonces are immune to static analysis attacks; compatible with `'strict-dynamic'` |
 | localStorage only | No auth, no server persistence, no GDPR surface; works offline |

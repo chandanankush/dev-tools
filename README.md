@@ -2,14 +2,14 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](LICENSE)
 
-A TypeScript-first Next.js 15 App Router project for showcasing developer utilities. The homepage renders a searchable, tag-filterable grid of tools sourced from a single configuration file so new tools can be added with minimal effort.
+A TypeScript-first Next.js 16 App Router project for showcasing developer utilities. The homepage renders a searchable, tag-filterable grid of tools sourced from a single configuration file so new tools can be added with minimal effort.
 
 Made by **[Chandan Singh](https://www.linkedin.com/in/chandan-singh-mobileengineer/)** · [GitHub](https://github.com/chandanankush)
 
 ## Features
 
-- ⚡️ Next.js 15 App Router with React Server Components
-- 🎨 Tailwind CSS, shadcn/ui primitives, and lucide-react icons
+- ⚡️ Next.js 16 App Router with React Server Components
+- 🎨 Tailwind CSS v4, shadcn/ui primitives, and lucide-react icons
 - 🌗 Dark / light mode toggle with localStorage persistence and zero flash-of-unstyled-content
 - 🔍 Fuse.js fuzzy search and tag filtering across tool titles and tags
 - 🧱 Modular tool registry via `lib/tools.config.ts`
@@ -23,7 +23,7 @@ Made by **[Chandan Singh](https://www.linkedin.com/in/chandan-singh-mobileengine
 | **Basic Calculator** | Evaluate arithmetic expressions with full operator and parentheses support, `%` percentage operator (context-aware: `200+10%=220`), GST and Discount quick-action buttons, Weight Price tab (per kg/500g/100g/2kg, rounding, reverse mode), keyboard input, and a localStorage-backed history of the last 50 calculations |
 | **Base64 Tool** | Encode plain text or decode Base64 strings with copy-friendly output |
 | **Compare Tools** | Side-by-side diff for JSON payloads and cURL commands |
-| **Editor Pad** | Browser-based notepad with multiple notes, plain and rich text (WYSIWYG) modes, multi-note sidebar, find & replace, font size control, word wrap, and file import/export |
+| **Editor Pad** | Browser-based notepad with multiple notes, plain text, rich text (WYSIWYG), and Markdown (write/preview/split) modes, multi-note sidebar, find & replace, font size control, word wrap, and file import/export |
 | **JSON Tools** | Prettify, validate, and explore JSON with a collapsible tree viewer |
 | **JWT Generator** | Craft HS256 JWTs with custom payload fields directly in the browser |
 | **Password Generator** | Generate cryptographically random passwords with configurable length, character sets, and custom symbols |
@@ -73,7 +73,7 @@ Nonce-based Content Security Policy enforced on every request via `middleware.ts
 
 ## Testing
 
-Vitest + `@testing-library/react`, jsdom environment. 13 test files, 84+ tests across all tools.
+Vitest 4 + `@testing-library/react`, jsdom environment. 13 test files, 97 tests across all tools.
 
 ```bash
 pnpm test
@@ -87,6 +87,6 @@ pnpm test
 
 ## Deployment
 
-Ships as a Docker container via a multi-stage `Dockerfile` (Node 20 Alpine, `output: standalone`). Jenkins pipeline included for ARM64 builds and remote deploy.
+Ships as a Docker container via a multi-stage `Dockerfile` (Node 26 Alpine, `output: standalone`). Jenkins pipeline included for ARM64 builds and remote deploy to Raspberry Pi via SSH.
 
 → Full instructions: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
