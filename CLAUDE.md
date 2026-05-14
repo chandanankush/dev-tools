@@ -169,6 +169,82 @@ For vulnerable transitive dependencies, use pnpm overrides in `package.json` rat
 
 When Dependabot opens a PR: check if it's a dev-only dependency (zero production risk) or a runtime dependency (must fix immediately).
 
+After every push, check for open alerts:
+```bash
+gh api repos/chandanankush/dev-tools/dependabot/alerts --jq '.[] | select(.state=="open") | {number, severity: .security_advisory.severity, package: .dependency.package.name}'
+gh api repos/chandanankush/dev-tools/code-scanning/alerts --jq '.[] | select(.state=="open") | {number, rule_id: .rule.id, severity: .rule.severity}'
+```
+
+---
+
+### 9. No code drift — repo must match production
+
+**Never leave security-relevant changes uncommitted.** If the live site has a security fix that isn't in the repo, a redeploy from source would regress it.
+
+Rule: every change that affects headers, CSP, auth, or any security boundary must be committed and pushed **in the same session** it is made. Never "fix it locally and commit later".
+
+This was a HIGH severity finding in the security assessment — the production middleware had correct headers but the GitHub repo still had `style-src 'unsafe-inline'` and was missing HSTS, COOP, COEP, CORP.
+
+---
+
+### 10. next.config.ts — suppress framework fingerprinting
+
+`next.config.ts` must always contain:
+```ts
+poweredByHeader: false,
+```
+
+Without this, Next.js adds `X-Powered-By: Next.js` to every response, advertising the framework version to attackers. This was finding F8 (LOW) in the security assessment.
+
+---
+
+### 11. Docker images — scan for CVEs before deploying
+
+After every `docker build`, run Docker Scout to check for new vulnerabilities:
+```bash
+docker scout cves dev-tools:local
+```
+
+For unfixable base-image CVEs (e.g. Alpine busybox with no upstream patch yet): document them as accepted risk and re-check after each rebuild. The `apk upgrade --no-cache` in the runner stage will automatically apply fixes when Alpine ships them.
+
+For fixable CVEs in npm-bundled packages: `npm install -g npm@latest` in the runner stage keeps npm's internal dependencies current.
+
+---
+
+### 12. Privacy Policy — required for any public-facing site
+
+Any publicly deployed web application that processes requests must have a `/privacy` page that discloses:
+- What data is collected (even if the answer is "nothing beyond CDN logs")
+- Whether any server-side processing occurs (e.g. the URL Expander sends URLs to the server)
+- Which third-party services handle data (Cloudflare, etc.)
+
+This site's privacy policy is at `app/privacy/page.tsx`. If new server-side data processing is added, update it in the same PR.
+
+---
+
+### 13. Deprecated headers — use modern equivalents
+
+**Do not use `Report-To`** — it is deprecated.
+
+Use `Reporting-Endpoints` instead:
+```
+Reporting-Endpoints: default="https://your-endpoint/reports"
+```
+
+Currently, the `Report-To` header on this site is set by Cloudflare's Network Error Logging (NEL) feature, not by application code. If ever adding a reporting endpoint in `proxy.ts`, use `Reporting-Endpoints`.
+
+---
+
+### 14. Inline styles and CSP
+
+`style-src` in production CSP uses `'nonce-...'` — no `'unsafe-inline'`. This means:
+
+- **`<style>` tags** need `nonce={nonce}` prop — get nonce from `headers()` in Server Components
+- **`style={}` props on HTML elements** are fine — browser inline style attributes don't require a nonce
+- **Third-party widgets** that inject `<style>` without a nonce will be blocked — this is intentional; find a CSP-compatible alternative
+
+If a library requires `'unsafe-inline'` to function, do not add it to the CSP. Find a nonce-compatible version or replace the library.
+
 ---
 
 ## Banned patterns — quick reference
@@ -188,6 +264,13 @@ When Dependabot opens a PR: check if it's a dev-only dependency (zero production
 | Hardcoded credentials or tokens | Secret exposure | `.env.local` |
 | `StrictHostKeyChecking=no` in SSH | MITM attack | `ssh-keyscan` to known_hosts |
 | `sshpass` with plaintext password | Credential exposure | SSH key via `sshUserPrivateKey` |
+| Missing `poweredByHeader: false` in next.config.ts | Reveals framework to attackers | Add it — already present, never remove |
+| Uncommitted security changes | Production/repo drift — HIGH severity | Commit every security fix in the same session |
+| Deploying Docker image without CVE scan | Unknown vulnerabilities in production | `docker scout cves <image>` before deploy |
+| `Report-To` header | Deprecated | Use `Reporting-Endpoints` |
+| `<style>` tag without nonce | CSP violation / `unsafe-inline` needed | Pass `nonce={nonce}` prop to `<style>` |
+| Library requiring `unsafe-inline` to work | Forces CSP weakening | Find nonce-compatible version or replace |
+| Public site with no `/privacy` page | GDPR/legal exposure | Add `app/privacy/page.tsx` disclosing data practices |
 
 ---
 
