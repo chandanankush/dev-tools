@@ -42,6 +42,14 @@ function scorePassword(pwd: string, length: number, sets: Set<CharSet>): number 
   return Math.min(score, 4);
 }
 
+// Rejection sampling eliminates modulo bias when 2^32 isn't divisible by n.
+function unbiasedRandom(n: number): number {
+  const limit = Math.floor(0x100000000 / n) * n;
+  let v: number;
+  do { v = crypto.getRandomValues(new Uint32Array(1))[0]; } while (v >= limit);
+  return v % n;
+}
+
 function generatePassword(length: number, sets: Set<CharSet>, customSymbols: string): string {
   const resolvedSymbols = customSymbols.trim() || DEFAULT_SYMBOLS;
   const charMap: Record<CharSet, string> = {
@@ -57,18 +65,17 @@ function generatePassword(length: number, sets: Set<CharSet>, customSymbols: str
   // Guarantee at least one char from each selected set
   const required = activeSets.map((s) => {
     const chars = charMap[s];
-    return chars[crypto.getRandomValues(new Uint32Array(1))[0] % chars.length];
+    return chars[unbiasedRandom(chars.length)];
   });
 
-  const remaining = Array.from({ length: Math.max(0, length - required.length) }, () => {
-    const idx = crypto.getRandomValues(new Uint32Array(1))[0] % pool.length;
-    return pool[idx];
-  });
+  const remaining = Array.from({ length: Math.max(0, length - required.length) }, () =>
+    pool[unbiasedRandom(pool.length)]
+  );
 
   // Shuffle using Fisher-Yates with crypto random
   const all = [...required, ...remaining];
   for (let i = all.length - 1; i > 0; i--) {
-    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    const j = unbiasedRandom(i + 1);
     [all[i], all[j]] = [all[j], all[i]];
   }
   return all.join("");
