@@ -1,0 +1,16 @@
+#!/bin/sh
+# Pre-commit hook — runs on every commit regardless of which tool or agent made it.
+# All checks must pass. If any fail, the commit is rejected.
+
+set -e
+
+echo "▶ Type check..."
+pnpm tsc --noEmit
+
+echo "▶ Lint..."
+pnpm lint
+
+echo "▶ Tests..."
+pnpm test
+
+echo "✓ All checks passed."
