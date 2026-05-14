@@ -11,6 +11,7 @@ type ExpandUrlResponse = {
 };
 
 const MAX_URLS = 20;
+const MAX_REDIRECTS = 10;
 const REQUEST_TIMEOUT_MS = 10_000;
 
 // Block requests to private/internal network addresses to prevent SSRF.
@@ -30,6 +31,57 @@ function isPrivateHost(hostname: string): boolean {
     if (a === 100 && b >= 64 && b <= 127) return true;
   }
   return false;
+}
+
+// Validates that a URL is safe to fetch (http/https only, no private hosts).
+function validateUrl(url: string): { href: string } | { error: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { error: "Invalid URL." };
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { error: "Only http and https URLs are supported." };
+  }
+  if (isPrivateHost(parsed.hostname)) {
+    return { error: "URL resolves to a disallowed address." };
+  }
+  return { href: parsed.href };
+}
+
+// Manually follows redirects so every hop is validated against isPrivateHost,
+// preventing SSRF via open redirects on otherwise-allowed public hosts.
+async function fetchWithValidatedRedirects(
+  startUrl: string,
+  method: "HEAD" | "GET",
+  signal: AbortSignal,
+): Promise<Response> {
+  let currentUrl = startUrl;
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const validated = validateUrl(currentUrl);
+    if ("error" in validated) throw new Error(validated.error);
+
+    const response = await fetch(validated.href, {
+      method,
+      redirect: "manual",
+      headers: COMMON_HEADERS,
+      signal,
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) return response;
+      // Resolve relative redirects against the current URL.
+      currentUrl = new URL(location, currentUrl).href;
+      continue;
+    }
+
+    return response;
+  }
+
+  throw new Error("Too many redirects.");
 }
 
 const COMMON_HEADERS = {
@@ -83,19 +135,9 @@ export async function POST(request: NextRequest) {
 }
 
 async function resolveUrl(url: string): Promise<ExpandUrlResponse> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return { shortUrl: url, longUrl: null, status: "error", error: "Invalid URL." };
-  }
-
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    return { shortUrl: url, longUrl: null, status: "error", error: "Only http and https URLs are supported." };
-  }
-
-  if (isPrivateHost(parsed.hostname)) {
-    return { shortUrl: url, longUrl: null, status: "error", error: "URL resolves to a disallowed address." };
+  const initial = validateUrl(url);
+  if ("error" in initial) {
+    return { shortUrl: url, longUrl: null, status: "error", error: initial.error };
   }
 
   let lastErrorMessage = "Unable to resolve URL.";
@@ -109,12 +151,7 @@ async function resolveUrl(url: string): Promise<ExpandUrlResponse> {
     const startedAt = Date.now();
 
     try {
-      const response = await fetch(url, {
-        method,
-        redirect: "follow",
-        headers: COMMON_HEADERS,
-        signal: controller.signal,
-      });
+      const response = await fetchWithValidatedRedirects(initial.href, method, controller.signal);
       const durationMs = Date.now() - startedAt;
 
       clearTimeout(timeoutId);
