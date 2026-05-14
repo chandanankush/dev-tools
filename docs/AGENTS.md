@@ -2,6 +2,22 @@
 
 This document defines conventions for AI coding agents (GitHub Copilot, Claude, etc.) working in this repository.
 
+> **Claude Code users:** The root `CLAUDE.md` file contains the authoritative security rules and banned patterns. Read it first. This document provides architecture and convention context.
+
+---
+
+## Mandatory pre-commit checklist
+
+Every agent must run these before committing — no exceptions:
+
+```bash
+pnpm test     # all tests must pass
+pnpm build    # zero type errors
+pnpm lint     # clean
+```
+
+Then self-review the diff against the **Banned patterns** table at the bottom of this file.
+
 ---
 
 ## Project identity
