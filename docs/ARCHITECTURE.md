@@ -44,6 +44,8 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │   ├── layout.tsx              Global HTML shell — ThemeProvider, anti-FOUC nonce script
 │   ├── page.tsx                Homepage — hero, ToolGallery (sorted A–Z), footer
 │   ├── not-found.tsx           Custom 404
+│   ├── privacy/
+│   │   └── page.tsx            Privacy Policy page (/privacy)
 │   ├── robots.ts               Auto-generated robots.txt
 │   ├── sitemap.ts              Auto-generated sitemap.xml (all tool slugs)
 │   └── api/
@@ -95,9 +97,9 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │   ├── setup.ts                 Vitest global setup (next/image mock, cleanup)
 │   └── tools/                   Per-tool regression tests (13 files, 84+ tests)
 │
-├── middleware.ts                 CSP nonce generation + security response headers
-├── next.config.ts                standalone output, esmExternals
-├── Dockerfile                    Multi-stage build (deps → builder → runner)
+├── proxy.ts                 Next.js 16 middleware — CSP nonce generation + security response headers
+├── next.config.ts                standalone output, poweredByHeader: false, esmExternals
+├── Dockerfile                    Multi-stage build (deps → builder → runner, non-root USER)
 └── Jenkinsfile                   CI/CD pipeline (build → SSH deploy to Raspberry Pi, no registry)
 ```
 
@@ -142,7 +144,7 @@ Browser → GET /
 
 ```
 Browser → GET /tools/editor-pad
-  → middleware.ts runs first
+  → proxy.ts runs first
     → generates nonce
     → attaches CSP + security headers
   → Next.js renders [slug]/page.tsx (RSC)
@@ -183,7 +185,7 @@ cURL Compare flow:
 
 ```
 Browser → POST /api/expand-url  { urls: ["https://bit.ly/xyz"] }
-  → middleware.ts (CSP headers)
+  → proxy.ts (CSP headers)
   → route.ts (server)
     → HEAD request to short URL with timeout (10s)
     → falls back to GET if HEAD fails
@@ -195,27 +197,45 @@ Browser → POST /api/expand-url  { urls: ["https://bit.ly/xyz"] }
 
 ## Security model
 
-All handled in `middleware.ts` which runs on **every non-static request**.
+All handled in `proxy.ts` (Next.js 16 middleware filename) which runs on **every non-static request**.
 
 | Header | Value | Purpose |
 |---|---|---|
 | `Content-Security-Policy` | nonce-based, strict-dynamic | Prevents XSS |
+| `Strict-Transport-Security` | max-age=31536000; includeSubDomains; preload | Forces HTTPS |
 | `X-Frame-Options` | DENY | Prevents clickjacking |
 | `X-Content-Type-Options` | nosniff | Prevents MIME sniffing |
 | `Referrer-Policy` | strict-origin-when-cross-origin | Limits referrer leakage |
 | `Permissions-Policy` | camera=(), microphone=(), geolocation=() | Disables sensitive APIs |
+| `Cross-Origin-Opener-Policy` | same-origin | Prevents cross-origin window access |
+| `Cross-Origin-Embedder-Policy` | require-corp | Enables cross-origin isolation |
+| `Cross-Origin-Resource-Policy` | same-origin | Blocks cross-origin resource reads |
 
 **Production CSP (strict):**
 ```
 script-src 'nonce-<random>' 'strict-dynamic'
+style-src 'self' 'nonce-<random>'
 connect-src 'self'
+upgrade-insecure-requests
 ```
 
 **Dev CSP (relaxed for HMR):**
 ```
 script-src 'self' 'nonce-<random>' 'strict-dynamic' 'unsafe-eval'
+style-src 'self' 'nonce-<random>'
 connect-src 'self' ws: wss:
 ```
+
+### API security — `/api/expand-url`
+
+The URL Expander API prevents SSRF via three layers:
+1. **Protocol allowlist** — only `http:` and `https:` are accepted.
+2. **Private host blocklist** (`isPrivateHost`) — rejects RFC-1918, loopback (`127/8`, `::1`, `localhost`), link-local/metadata (`169.254/16`), and shared address space (`100.64/10`).
+3. **Per-hop redirect validation** — uses `redirect: "manual"` and validates every `Location` header through `isPrivateHost` before following, preventing SSRF via open redirects on public hosts.
+
+### Password Generator
+
+Uses `unbiasedRandom(n)` (rejection sampling) instead of `crypto.getRandomValues()[0] % n` to eliminate modulo bias when `2^32` is not divisible by the charset size.
 
 ---
 
@@ -285,16 +305,22 @@ flowchart TD
     A[Browser POST /api/expand-url] --> B{Payload valid?}
     B -- No --> C[400 Bad Request]
     B -- Yes --> D[For each URL up to 20]
-    D --> E[HEAD request\n10s timeout]
-    E --> F{Redirect found?}
-    F -- Yes --> G[Return longUrl + durationMs]
-    F -- No --> H[GET request fallback]
-    H --> I{Redirect found?}
-    I -- Yes --> G
-    I -- No --> J[Return error status]
-    G --> K[Aggregate results array]
-    J --> K
-    K --> L[200 JSON response]
+    D --> E{validateUrl:\nprotocol + isPrivateHost?}
+    E -- Blocked --> F[Return error: disallowed address]
+    E -- OK --> G[HEAD request\nredirect: manual\n10s timeout]
+    G --> H{3xx redirect?}
+    H -- Yes --> I{validateUrl\nLocation header}
+    I -- Blocked --> F
+    I -- OK --> G
+    H -- No --> J{Response OK?}
+    J -- Yes --> K[Return longUrl + durationMs]
+    J -- No --> L[GET fallback]
+    L --> K
+    L --> M[Return error status]
+    K --> N[Aggregate results array]
+    M --> N
+    F --> N
+    N --> O[200 JSON response]
 ```
 
 ---

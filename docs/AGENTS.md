@@ -31,12 +31,24 @@ All tools are registered in a single file: `lib/tools.config.ts`.
 - Tool pages live at `/tools/[slug]` — the slug must match `tools.config.ts`.
 - `generateStaticParams` pre-renders all known slugs at build time (`output: "standalone"`).
 
-### CSP
-- The project enforces a **nonce-based Content Security Policy** via `middleware.ts`.
+### CSP and security headers
+- The project enforces a **nonce-based Content Security Policy** via `proxy.ts` (Next.js 16 middleware — the file is named `proxy.ts`, not `middleware.ts`).
 - **Never use `eval`, `new Function`, or dynamic `<script>` injection** in any tool component.
 - In production: `script-src 'nonce-...' 'strict-dynamic'` — no `unsafe-eval`, no `unsafe-inline` scripts.
+- `style-src` uses `'nonce-...'` — no `unsafe-inline` styles.
 - Tiptap v3 is CSP-safe (ProseMirror, no eval). Keep it that way when extending.
 - → Full header table: [docs/ARCHITECTURE.md — Security model](ARCHITECTURE.md#security-model)
+
+### Server-side API security
+- `/api/expand-url` is the **only server-side API**. Any new server-side API must apply the same SSRF protections:
+  - Protocol allowlist (`http:`/`https:` only).
+  - `isPrivateHost()` blocking RFC-1918, loopback, link-local, and metadata address ranges.
+  - Manual redirect following (`redirect: "manual"`) with `isPrivateHost` checked at **every hop** via `fetchWithValidatedRedirects`.
+- **Never use `redirect: "follow"` with user-supplied URLs** in a server-side fetch call.
+
+### Cryptographic randomness
+- **Never use `crypto.getRandomValues()[0] % n`** — modulo bias exists when `2^32` is not divisible by `n`.
+- Use rejection sampling: `unbiasedRandom(n)` in `PasswordGenerator.tsx` is the canonical pattern to copy.
 
 ### Persistence
 - All tools store state in **localStorage only** — no user accounts, no backend persistence.
@@ -236,13 +248,30 @@ Rebase on large lockfile changes produces unresolvable conflicts.
 
 ---
 
+### 12. Next.js 16 middleware filename
+
+In Next.js 16, the middleware file is named **`proxy.ts`** (not `middleware.ts`). Never rename it back to `middleware.ts` or create a duplicate.
+
+---
+
+### 13. Docker security — non-root runner
+
+The Dockerfile runner stage runs as non-root user `appuser`. Never remove the `USER appuser` directive — running as root is a HIGH severity security finding.
+
+The runner stage also runs `apk upgrade --no-cache && npm install -g npm@latest` to pick up Alpine CVE patches. Keep these lines.
+
+---
+
 ## What agents must NOT do
 
 | Action | Reason |
 |---|---|
 | Add server-side persistence (DB, sessions) | Project is intentionally stateless beyond localStorage |
 | Introduce `eval` or `new Function` | Breaks CSP in production |
-| Remove or weaken CSP headers in `middleware.ts` | Security regression |
+| Remove or weaken CSP headers in `proxy.ts` | Security regression |
+| Use `redirect: "follow"` with user-supplied URLs server-side | SSRF vulnerability |
+| Use `crypto.getRandomValues()[0] % n` directly | Modulo bias — use `unbiasedRandom(n)` |
+| Remove `USER appuser` from Dockerfile runner stage | Container runs as root — HIGH severity |
 | Push to `main` directly | Use PRs |
 | Run `git push --force` or `git reset --hard` without confirmation | Destructive |
 | Delete files without confirmation | Destructive |

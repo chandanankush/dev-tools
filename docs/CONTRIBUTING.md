@@ -31,7 +31,9 @@ pnpm dev          # http://localhost:3000
 - TypeScript strict mode — no `any`, no type assertions unless absolutely necessary.
 - Tailwind utility classes only — no inline `style={}` except for dynamic values that cannot be expressed as classes.
 - `"use client"` directive is required on every tool component (they all use React state/hooks).
-- No `eval`, `new Function`, or dynamic `<script>` injection — the project enforces a strict CSP in production.
+- No `eval`, `new Function`, or dynamic `<script>` injection — the project enforces a strict CSP in production via `proxy.ts`.
+- No `redirect: "follow"` with user-supplied URLs in server-side fetch — use the `fetchWithValidatedRedirects` pattern in `/api/expand-url`.
+- For cryptographic randomness, use `unbiasedRandom(n)` (rejection sampling) — never `crypto.getRandomValues()[0] % n`.
 - → Full CSP header table and security model: [docs/ARCHITECTURE.md — Security model](ARCHITECTURE.md#security-model)
 
 ### Commits

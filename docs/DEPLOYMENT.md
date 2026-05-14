@@ -11,14 +11,14 @@ Dockerfile (multi-stage)
 ├── base      node:26-alpine + corepack (installed via npm — required for Node 25+)
 ├── deps      pnpm install --frozen-lockfile
 ├── builder   next build  (standalone output)
-└── runner    node server.js  (port 3000)
+└── runner    apk upgrade + npm@latest → non-root USER appuser → node server.js (port 3000)
 ```
 
 `next.config.ts` sets `output: "standalone"` — the runner image ships only what is needed (`server.js`, `.next/standalone`, `.next/static`, `public/`). No `node_modules` in the final image.
 
 **Target platform:** `linux/arm64/v8` (Raspberry Pi 4/5, Apple Silicon servers). Change `--platform` in the Jenkinsfile `Build Image` stage for x86.
 
-> Security headers (CSP, X-Frame-Options, etc.) are enforced by `middleware.ts` at the application layer — no additional nginx/proxy security config is needed for headers. → See [docs/ARCHITECTURE.md — Security model](ARCHITECTURE.md#security-model) for the full header table.
+> Security headers (CSP, HSTS, COOP, COEP, CORP, etc.) are enforced by `proxy.ts` (Next.js 16 middleware) at the application layer — no additional nginx/proxy security config is needed for headers. The runner stage runs as a non-root user (`appuser`) and upgrades Alpine packages + npm on every build to minimise CVE exposure. → See [docs/ARCHITECTURE.md — Security model](ARCHITECTURE.md#security-model) for the full header table.
 
 ---
 

@@ -146,6 +146,21 @@ Test file: `tests/tools/url-expander.test.tsx`
 
 > Note: `fetch` is stubbed for success/error path testing without real network dependency.
 
+**API-level SSRF validation** (server-side, `app/api/expand-url/route.ts`):
+- Private IP blocked: `http://192.168.1.1` → error `URL resolves to a disallowed address.`
+- Loopback blocked: `http://localhost/admin` → error
+- Link-local / metadata blocked: `http://169.254.169.254/` → error
+- Non-http protocol blocked: `ftp://example.com` → error `Only http and https URLs are supported.`
+- Redirect to private IP blocked: public URL that 301s to `http://10.0.0.1` → error at hop validation
+- Valid short URL resolves normally
+
+---
+
+**Password Generator — unbiased randomness** (unit-level, `components/tools/PasswordGenerator.tsx`):
+- `unbiasedRandom(n)` never returns a value `>= n` for any charset size
+- Generated password always contains at least one character from each selected set
+- Fisher-Yates shuffle produces all characters from the full pool (no dropped chars)
+
 ---
 
 ### 7) UUID Generator
@@ -222,6 +237,8 @@ Run these after major changes (middleware/CSP, dependency bumps, UI refactors):
 1. `pnpm run test`
 2. `pnpm run build`
 3. Spot-check key pages:
+   - `/` (homepage — verify Privacy Policy link in footer)
+   - `/privacy`
    - `/tools/json-tools`
    - `/tools/editor-pad`
    - `/tools/compare-tools`
