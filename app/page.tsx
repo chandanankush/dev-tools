@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Terminal, Zap, Globe, Star, GitPullRequest, CircleDot } from "lucide-react";
 
 const GithubIcon = () => (
@@ -133,6 +134,13 @@ export default function HomePage() {
               <LinkedinIcon />
               Chandan Singh — Mobile & Website Engineer
             </a>
+
+            <Link
+              href="/privacy"
+              className="text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              Privacy Policy
+            </Link>
           </div>
         </footer>
       </div>
