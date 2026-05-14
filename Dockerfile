@@ -31,6 +31,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Upgrade Alpine packages (picks up busybox CVE-2025-60876 when a fix lands)
+# and npm (fixes ip-address CVE-2026-42338 via npm 11.14.1+)
+RUN apk upgrade --no-cache && npm install -g npm@latest
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=builder /app/public ./public
