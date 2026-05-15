@@ -7,3 +7,4 @@
 .env.production
 pnpm-debug.log
 next-env.d.ts
+tsconfig.tsbuildinfo
