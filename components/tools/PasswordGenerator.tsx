@@ -27,10 +27,10 @@ const OPTION_LABELS: Record<CharSet, string> = {
 };
 
 function strengthLabel(score: number): { label: string; color: string } {
-  if (score <= 1) return { label: "Weak",   color: "bg-red-500"    };
-  if (score === 2) return { label: "Fair",   color: "bg-amber-500"  };
-  if (score === 3) return { label: "Good",   color: "bg-yellow-400" };
-  return              { label: "Strong", color: "bg-emerald-500" };
+  if (score <= 1) return { label: "Weak",   color: "bg-destructive" };
+  if (score === 2) return { label: "Fair",   color: "bg-warning"     };
+  if (score === 3) return { label: "Good",   color: "bg-warning"     };
+  return              { label: "Strong", color: "bg-success"      };
 }
 
 function scorePassword(pwd: string, length: number, sets: Set<CharSet>): number {
@@ -149,7 +149,7 @@ export default function PasswordGenerator() {
             className="shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50"
             aria-label="Copy password"
           >
-            {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
           </button>
         </div>
 

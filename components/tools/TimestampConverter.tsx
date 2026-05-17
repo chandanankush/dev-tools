@@ -168,7 +168,7 @@ export default function TimestampConverter() {
                 className="ml-1 text-muted-foreground hover:text-foreground"
                 aria-label="Copy result"
               >
-                {tsCopy.isCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                {tsCopy.isCopied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
             {tsDate && (
@@ -222,7 +222,7 @@ export default function TimestampConverter() {
                 className="ml-1 text-muted-foreground hover:text-foreground"
                 aria-label="Copy result"
               >
-                {dtCopy.isCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                {dtCopy.isCopied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
           </div>

@@ -353,7 +353,7 @@ function JsonDiffView({
 
   if (diffCount === 0) {
     return (
-      <div className="flex items-center gap-2 text-sm text-emerald-600">
+      <div className="flex items-center gap-2 text-sm text-success">
         <CheckCircle2 className="h-4 w-4" />
         <span>JSON match</span>
       </div>
@@ -364,17 +364,17 @@ function JsonDiffView({
     <div className="space-y-3">
       {/* Summary + legend */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-500">
+        <div className="flex items-center gap-2 text-sm text-warning">
           <AlertTriangle className="h-4 w-4" />
           <span>{diffCount} {diffCount === 1 ? "difference" : "differences"}</span>
         </div>
         <div className="flex gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-red-200 dark:bg-red-900/60" />
+            <span className="inline-block h-3 w-3 rounded-sm bg-destructive/30" />
             JSON A (removed)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/60" />
+            <span className="inline-block h-3 w-3 rounded-sm bg-success/30" />
             JSON B (added)
           </span>
         </div>
@@ -422,8 +422,8 @@ function DiffCell({ cell, side }: { cell: SideBySideCell; side: "left" | "right"
       className={cn(
         "min-h-[1.5rem] py-0.5 pr-3 leading-6",
         isLeft && "border-r border-border/60",
-        cell.highlight === "removed" && "bg-red-50 dark:bg-red-950/40",
-        cell.highlight === "added" && "bg-emerald-50 dark:bg-emerald-950/40",
+        cell.highlight === "removed" && "bg-destructive/8",
+        cell.highlight === "added" && "bg-success/8",
         cell.highlight === "empty" && "bg-muted/40",
         COMPARE_INDENT[Math.min(cell.indent, 9)] ?? 'pl-48',
       )}
@@ -431,12 +431,12 @@ function DiffCell({ cell, side }: { cell: SideBySideCell; side: "left" | "right"
       {cell.highlight === "empty" ? null : (
         <>
           {cell.keyPart && (
-            <span className="text-blue-600 dark:text-blue-400">{cell.keyPart}</span>
+            <span className="text-primary">{cell.keyPart}</span>
           )}
           <span
             className={cn(
-              cell.highlight === "removed" && "text-red-700 dark:text-red-300",
-              cell.highlight === "added" && "text-emerald-700 dark:text-emerald-300",
+              cell.highlight === "removed" && "text-destructive",
+              cell.highlight === "added" && "text-success",
               cell.highlight === "none" && "text-foreground",
             )}
           >
@@ -472,7 +472,7 @@ function CurlDiffView({
 
   if (diff.length === 0) {
     return (
-      <div className="flex items-center gap-2 text-sm text-emerald-600">
+      <div className="flex items-center gap-2 text-sm text-success">
         <CheckCircle2 className="h-4 w-4" />
         <span>Commands match</span>
       </div>
@@ -481,7 +481,7 @@ function CurlDiffView({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-500">
+      <div className="flex items-center gap-2 text-sm text-warning">
         <AlertTriangle className="h-4 w-4" />
         <span>
           {diff.length} {diff.length === 1 ? "difference" : "differences"}
@@ -505,7 +505,7 @@ function CurlDiffView({
                   {item.leftValue === null ? (
                     <span className="italic text-muted-foreground">&mdash;</span>
                   ) : (
-                    <span className="rounded bg-red-50 px-1.5 py-0.5 font-mono text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                    <span className="rounded bg-destructive/8 px-1.5 py-0.5 font-mono text-xs text-destructive">
                       {item.leftValue}
                     </span>
                   )}
@@ -514,7 +514,7 @@ function CurlDiffView({
                   {item.rightValue === null ? (
                     <span className="italic text-muted-foreground">&mdash;</span>
                   ) : (
-                    <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                    <span className="rounded bg-success/8 px-1.5 py-0.5 font-mono text-xs text-success">
                       {item.rightValue}
                     </span>
                   )}

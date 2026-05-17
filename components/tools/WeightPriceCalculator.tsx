@@ -116,15 +116,15 @@ export default function WeightPriceCalculator() {
     "placeholder:text-muted-foreground"
   );
 
-  const chipClass = (active: boolean, color: "primary" | "rose" | "amber") =>
+  const chipClass = (active: boolean, color: "primary" | "secondary" | "warning") =>
     cn(
       "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
       active
         ? color === "primary"
           ? "border-primary bg-primary/10 text-primary"
-          : color === "rose"
-            ? "border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400"
-            : "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+          : color === "secondary"
+            ? "border-secondary-foreground/30 bg-secondary text-secondary-foreground"
+            : "border-warning/60 bg-warning/10 text-warning"
         : "border-border/80 bg-card text-foreground/70 hover:bg-muted/60"
     );
 
@@ -237,7 +237,7 @@ export default function WeightPriceCalculator() {
                 key={r}
                 type="button"
                 onClick={() => setRoundMode(r)}
-                className={chipClass(roundMode === r, "amber")}
+                className={chipClass(roundMode === r, "warning")}
               >
                 {r === "none" ? "Exact" : `₹${r}`}
               </button>

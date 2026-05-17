@@ -23,6 +23,10 @@
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
@@ -63,6 +67,10 @@
   --accent-foreground: 222 47% 11%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 20% 98%;
+  --success: 142 71% 35%;
+  --success-foreground: 210 20% 98%;
+  --warning: 38 92% 42%;
+  --warning-foreground: 210 20% 98%;
   --border: 214 32% 91%;
   --input: 214 32% 91%;
   --ring: 262 83% 58%;
@@ -88,6 +96,10 @@
   --accent-foreground: 210 20% 92%;
   --destructive: 0 70% 58%;       /* bright red — visible on dark bg       */
   --destructive-foreground: 210 20% 98%;
+  --success: 142 69% 48%;
+  --success-foreground: 222 47% 11%;
+  --warning: 38 88% 55%;
+  --warning-foreground: 222 47% 11%;
   --border: 215 35% 27%;          /* clearly visible dividers & outlines   */
   --input: 215 35% 17%;
   --ring: 262 83% 65%;

@@ -157,7 +157,7 @@ export default function RegexTester() {
             disabled={!pattern}
             aria-label="Copy regex"
           >
-            {copyFlag.isCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            {copyFlag.isCopied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
           </Button>
         </div>
         {patternError && (
@@ -240,7 +240,7 @@ export default function RegexTester() {
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                     {Object.entries(m.groups).map(([k, v]) => (
                       <span key={k} className="font-mono text-xs text-muted-foreground">
-                        <span className="text-sky-500">{k}</span>: {JSON.stringify(v)}
+                        <span className="text-primary">{k}</span>: {JSON.stringify(v)}
                       </span>
                     ))}
                   </div>
