@@ -1,3 +1,18 @@
+/**
+ * Base64Utility — encode plain text to Base64 or decode Base64 back to text.
+ *
+ * All encoding/decoding runs in the browser via `lib/base64.ts` (no server
+ * calls) so input data never leaves the user's machine.
+ *
+ * Two independent copy flags (`encodedCopy`, `decodedCopy`) are maintained so
+ * switching between encode/decode modes resets the Copy button state cleanly —
+ * `switchMode` calls `.reset()` on both to prevent a "Copied!" label persisting
+ * on a value the user hasn't yet interacted with in the new mode.
+ *
+ * Error display is mode-local: encode errors don't pollute the decode panel and
+ * vice versa, sharing a single `error` state that `switchMode` clears.
+ */
+
 "use client";
 
 import { useState } from "react";

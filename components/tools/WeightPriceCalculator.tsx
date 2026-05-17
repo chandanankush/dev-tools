@@ -1,3 +1,28 @@
+/**
+ * WeightPriceCalculator — converts between product weight/price and total cost.
+ *
+ * Two modes:
+ *   - Normal (Price → Total): given a unit price and a weight, compute the
+ *     total cost. Optional rounding to the nearest ₹1/₹5/₹10 for cash transactions.
+ *   - Reverse (Total → Weight): given a unit price and a total bill amount,
+ *     compute how much weight was purchased.
+ *
+ * Both modes normalise the unit price to per-kg via `toPricePerKg` before
+ * computing so all unit options (per_kg, per_500g, per_100g, per_2kg) share
+ * the same arithmetic path.
+ *
+ * `compute` is a `useCallback` with all numeric inputs as deps — it returns
+ * null when inputs are incomplete rather than returning NaN/Infinity, so the
+ * result card simply shows a placeholder prompt instead of a garbage value.
+ *
+ * `guardInput` prevents the user from typing negative numbers — it validates
+ * on change and silently discards invalid values rather than showing an error,
+ * keeping the calculator-style UX frictionless.
+ *
+ * Currency is Indian Rupees (₹) and locale formatting uses `en-IN` (Indian
+ * numbering system with lakh/crore separators).
+ */
+
 "use client";
 
 import { useState, useCallback } from "react";

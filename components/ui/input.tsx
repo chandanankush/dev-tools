@@ -1,3 +1,15 @@
+/**
+ * Input — thin styled wrapper around a native <input>.
+ *
+ * Keeps all base styles (border, ring, height, text size) in one place so
+ * every input in the app looks identical without repeating Tailwind class
+ * strings. Callers override via `className` — tailwind-merge ensures conflicts
+ * resolve in favour of the caller's value.
+ *
+ * `forwardRef` is required so parent components (e.g. form libraries or
+ * components that need to programmatically focus the field) can attach a ref.
+ */
+
 import * as React from "react";
 
 import { cn } from "@/lib/utils";

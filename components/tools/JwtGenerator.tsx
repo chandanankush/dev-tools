@@ -1,3 +1,22 @@
+/**
+ * JwtGenerator — encode (generate) or decode (inspect) JWTs in the browser.
+ *
+ * Encode mode builds an HS256-signed token via `lib/jwt.ts` using the Web
+ * Crypto API — no secret ever leaves the browser.
+ *
+ * Decode mode splits the token on `.` and base64url-decodes each segment to
+ * display the header, payload, and signature independently. It does NOT verify
+ * the signature (that would require the secret). The UI makes this explicit:
+ * if the signature segment is missing the component warns the user.
+ *
+ * The three independent copy flags (`decodedHeaderCopy`, `decodedPayloadCopy`,
+ * `decodedSignatureCopy`) let the user copy any decoded segment independently
+ * without the "Copied!" state leaking across segments.
+ *
+ * `copyDecodedText` is a local helper that accepts a setter for the error state
+ * so a single function handles copy + error display for all three segments.
+ */
+
 "use client";
 
 import { useState, type ChangeEvent } from "react";

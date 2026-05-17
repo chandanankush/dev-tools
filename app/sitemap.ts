@@ -1,3 +1,15 @@
+/**
+ * sitemap.ts — Next.js XML sitemap route.
+ *
+ * Generates one entry per tool by iterating the central `tools` array, so
+ * adding a new tool to tools.config.ts automatically includes it in the
+ * sitemap without touching this file.
+ *
+ * `LAST_UPDATED` is a hard-coded date rather than a build timestamp so that
+ * crawlers are not told the content changed on every redeploy (which would
+ * waste crawl budget). Update it manually when tool content meaningfully changes.
+ */
+
 import type { MetadataRoute } from "next";
 
 import { tools } from "@/lib/tools.config";

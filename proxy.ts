@@ -1,3 +1,28 @@
+/**
+ * proxy.ts — Next.js 16 middleware (named "proxy" per Next.js 16 convention).
+ *
+ * Runs on every matched request (see `config.matcher`) to:
+ *   1. Generate a per-request cryptographic nonce used in the Content-Security-Policy.
+ *   2. Forward the nonce to the app via the `x-nonce` request header so the
+ *      layout Server Component can apply it to <script> and <style> tags.
+ *   3. Set the full suite of HTTP security headers on every response.
+ *
+ * CSP strategy:
+ *   - `nonce-${nonce}` + `strict-dynamic` allows only scripts and styles that
+ *     carry the nonce — inline or external scripts without the nonce are blocked.
+ *   - Development adds `'unsafe-eval'` (needed for Next.js HMR) and allows
+ *     WebSocket connections for hot reload. Neither directive is present in
+ *     production.
+ *   - `img-src 'self' data:` allows base64 data URIs (used by QR code preview)
+ *     without allowing arbitrary external images.
+ *
+ * The matcher regex excludes static assets (_next/static, images, fonts, etc.)
+ * so the middleware does not add overhead to those responses.
+ *
+ * Security header reference: see CLAUDE.md rule 6 for the full required set and
+ * acceptable values. Do not remove any header; fix the tool instead.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 
 function generateNonce(): string {

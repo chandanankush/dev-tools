@@ -1,3 +1,23 @@
+/**
+ * BasicCalculator — two-tab wrapper that houses the arithmetic calculator
+ * and the WeightPriceCalculator sub-tool.
+ *
+ * Expression evaluation uses a hand-written recursive descent parser
+ * (parseNumber → parseFactor → parseTerm → parseExpr) instead of
+ * eval() / new Function() because both are banned by the project's
+ * Content-Security-Policy (no 'unsafe-eval'). See CLAUDE.md § CSP rule.
+ *
+ * The % operator is resolved in two preprocessing passes before the
+ * parser even sees the string:
+ *   Pass 1 (context-aware)  — "200+10%" → "200+(200*(10/100))" so that
+ *     percentage-of-base semantics match most calculator conventions.
+ *   Pass 2 (standalone/multiplicative) — any remaining "n%" → "(n/100)"
+ *     covering cases like "50%" → 0.5 or "200*10%" → 20.
+ *
+ * History is kept in localStorage under STORAGE_KEY, capped at
+ * MAX_HISTORY entries (FIFO) so the serialised JSON never grows large
+ * enough to hit quota limits.
+ */
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -8,11 +28,16 @@ import WeightPriceCalculator from "./WeightPriceCalculator";
 type CalcTab = "calculator" | "weight";
 
 const STORAGE_KEY = "calc-history";
+/** Cap prevents localStorage from growing unboundedly across long sessions. */
 const MAX_HISTORY = 50;
 const ALLOWED_RE = /^[0-9+\-*/().%\s]*$/;
 
 type HistoryItem = { expression: string; result: string; timestamp: number };
 
+/**
+ * Evaluates an arithmetic string without eval/new Function (CSP-safe).
+ * Returns the result as a string, or throws a human-readable Error.
+ */
 function safeEval(expr: string): string {
   const trimmed = expr.trim();
   if (!trimmed) throw new Error("Expression is empty");
@@ -28,6 +53,11 @@ function safeEval(expr: string): string {
     .replace(/(\d+(?:\.\d*)?)([+-])(\d+(?:\.\d*)?)%/g, (_, a, op, b) => `${a}${op}(${a}*(${b}/100))`)
     .replace(/(\d+(?:\.\d*)?)%/g, "($1/100)");
 
+  /**
+   * Consumes a decimal literal at the current position.
+   * The parser uses a shared mutable `pos` cursor — all four parse*
+   * functions advance it as they consume characters.
+   */
   function parseNumber(): number {
     const start = pos;
     while (pos < input.length && /[0-9]/.test(input[pos])) pos++;
@@ -39,6 +69,10 @@ function safeEval(expr: string): string {
     return parseFloat(input.slice(start, pos));
   }
 
+  /**
+   * Handles unary sign and parenthesised sub-expressions — the highest
+   * precedence level in the grammar (factor = atom or unary-prefixed atom).
+   */
   function parseFactor(): number {
     if (pos < input.length && input[pos] === "-") { pos++; return -parseFactor(); }
     if (pos < input.length && input[pos] === "+") { pos++; return parseFactor(); }
@@ -52,6 +86,7 @@ function safeEval(expr: string): string {
     return parseNumber();
   }
 
+  /** Handles * and / — left-associative, higher precedence than + and -. */
   function parseTerm(): number {
     let left = parseFactor();
     while (pos < input.length && (input[pos] === "*" || input[pos] === "/")) {
@@ -67,6 +102,7 @@ function safeEval(expr: string): string {
     return left;
   }
 
+  /** Handles + and - — the lowest precedence binary operators. */
   function parseExpr(): number {
     let left = parseTerm();
     while (pos < input.length && (input[pos] === "+" || input[pos] === "-")) {
@@ -77,8 +113,11 @@ function safeEval(expr: string): string {
   }
 
   const result = parseExpr();
+  // Any unconsumed characters indicate a syntax error (e.g. trailing ")").
   if (pos !== input.length) throw new Error("Unexpected character: " + input[pos]);
   if (!isFinite(result)) throw new Error("Result is undefined (e.g. division by zero)");
+  // toPrecision(12) trims insignificant trailing digits from IEEE-754 results
+  // (e.g. 0.1 + 0.2 → "0.3" instead of "0.30000000000000004").
   return Number(result.toPrecision(12)).toString();
 }
 
@@ -111,6 +150,7 @@ const BUTTONS: CalcButton[] = [
   { label: "=",  type: "equals" },
 ];
 
+/** Root component — mounts the tab bar and delegates to the active sub-panel. */
 export default function BasicCalculator() {
   const [activeTab, setActiveTab] = useState<CalcTab>("calculator");
   const [expression, setExpression] = useState("");
@@ -155,6 +195,7 @@ export default function BasicCalculator() {
         result,
         timestamp: Date.now(),
       };
+      // Prepend newest entry and keep only the last MAX_HISTORY items.
       setHistory((prev) => [item, ...prev].slice(0, MAX_HISTORY));
       setExpression(result);
       setError(null);
@@ -209,7 +250,14 @@ export default function BasicCalculator() {
     }
   };
 
-  /** Precise percentage: avoids IEEE-754 drift for common financial numbers. */
+  /**
+   * Percentage helper that avoids IEEE-754 drift for typical financial inputs.
+   * Multiplying by 1e10 before rounding lifts the value out of the
+   * sub-integer floating-point region where precision is lost, then
+   * divides by 1e12 (= 1e10 × 100) to yield (value * rate / 100).
+   * Example without trick: 100 * 0.18 → 18.000000000000004
+   * Example with trick:    Math.round(100 * 0.18 * 1e10) / 1e12 → 18
+   */
   const pct = (value: number, rate: number): number =>
     Math.round(value * rate * 1e10) / 1e12;
 

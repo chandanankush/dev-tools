@@ -1,3 +1,31 @@
+/**
+ * POST /api/expand-url — server-side URL expansion endpoint.
+ *
+ * URL expansion must happen server-side (not client-side) because:
+ *   - Following redirects from the browser would be blocked by CORS for most
+ *     shorteners that don't set permissive Access-Control-Allow-Origin headers.
+ *   - A client-side `fetch` cannot observe the intermediate redirect locations
+ *     that reveal the final destination of a redirect chain.
+ *
+ * Security (SSRF prevention):
+ *   - `isPrivateHost` rejects any URL that would resolve to a private/internal
+ *     network address (RFC-1918, loopback, link-local, CGNAT).
+ *   - Redirects are followed manually (`redirect: "manual"`) so every hop is
+ *     validated through `isPrivateHost` before fetching — an attacker cannot use
+ *     a public URL that redirects to `169.254.169.254` (AWS metadata) to bypass
+ *     the initial check. See CLAUDE.md rule 2 for the full SSRF policy.
+ *
+ * Retry strategy:
+ *   - HEAD is attempted first (faster, no body).
+ *   - If the server responds with a status in `retryStatuses` (auth challenges,
+ *     method-not-allowed, rate limits, server errors) the request is retried as
+ *     GET, which some servers require to return a 200.
+ *
+ * Timeout:
+ *   - Each attempt is bounded by `REQUEST_TIMEOUT_MS` (10 s) via AbortController
+ *     to prevent a slow external server from hanging the serverless function.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 
 type ExpandUrlResponse = {

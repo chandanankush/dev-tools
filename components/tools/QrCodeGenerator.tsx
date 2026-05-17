@@ -1,3 +1,25 @@
+/**
+ * QrCodeGenerator — encodes text or URLs into QR codes with live preview.
+ *
+ * QR generation is async (`QRCode.toDataURL` returns a Promise) so a
+ * stale-closure guard (`let active = true`) prevents a slow previous generation
+ * from overwriting a result produced by a newer input value. The cleanup
+ * function sets `active = false` when the effect re-runs or the component
+ * unmounts, effectively cancelling any in-flight generation.
+ *
+ * `errorCorrectionLevel: "H"` (30% redundancy) allows a QR code to remain
+ * scannable even when partially obscured or printed at low resolution — the
+ * trade-off is a denser pattern, which is acceptable at `width: 640` px.
+ *
+ * URL mode validates the input with `new URL(value)` (throws for invalid
+ * absolute URLs) before generating, so invalid URLs don't produce a scannable
+ * QR that would fail when scanned.
+ *
+ * `MAX_QR_CHARACTERS` (2953) is the maximum binary-mode payload for QR Code
+ * version 40 — inputs beyond this cannot be encoded and the textarea is hard-
+ * capped to that length.
+ */
+
 "use client";
 
 import Image from "next/image";

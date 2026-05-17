@@ -1,3 +1,30 @@
+/**
+ * JsonViewer — interactive collapsible tree for exploring parsed JSON.
+ *
+ * Rendering strategy:
+ *   - `JsonTreeNode` is a recursive component; each call renders exactly one
+ *     node (key + value) and then calls itself for every child.
+ *   - Expand/collapse state is stored as a flat `Record<path, boolean>` in the
+ *     parent `JsonViewer`, keyed by a slash-separated path string
+ *     (e.g. "root/users/0/name"). This avoids threading boolean state down
+ *     through every level and lets any ancestor or sibling toggle any node.
+ *   - The root node defaults to open (`depth === 0`); all other nodes default
+ *     to closed (key absent from the record → treated as false).
+ *
+ * Type-based color scheme (approximates standard JSON viewer conventions):
+ *   - Object keys : #795da3 (purple)
+ *   - Strings     : #008000 (green)
+ *   - Numbers     : #0000ff (blue)
+ *   - Booleans    : #0000ff (blue)
+ *   - null        : gray, bold
+ *
+ * Tailwind indentation:
+ *   Tailwind's content scanner requires full class strings to be present in
+ *   source — it cannot assemble them from concatenated variables. The
+ *   `JSON_INDENT` array pre-declares every class that might be used so they
+ *   are included in the purged CSS bundle.
+ */
+
 "use client";
 
 import { useState } from "react";
@@ -36,6 +63,11 @@ const JSON_INDENT = [
   'pl-[200px]', // 10: 200px
 ] as const;
 
+/**
+ * Renders a single JSON node and, when expanded, recurses into its children.
+ * `path` is a slash-separated string used as the key into the shared `expanded` map.
+ * `isLast` controls whether a trailing comma is rendered after the value.
+ */
 function JsonTreeNode({
   value,
   path,
@@ -47,8 +79,10 @@ function JsonTreeNode({
 }: TreeNodeProps) {
   const isObject = value !== null && typeof value === "object";
   const isArray = Array.isArray(value);
+  // Only objects/arrays with at least one child are toggle-able
   const isExpandable = isObject && (isArray ? value.length > 0 : Object.keys(value).length > 0);
-  const isOpen = expanded[path] ?? depth === 0; // Root open by default
+  // Root node (depth 0) is open by default; all others start collapsed
+  const isOpen = expanded[path] ?? depth === 0;
 
   // Colors matching reference
   // Keys: #795da3 (Purple)
@@ -60,6 +94,7 @@ function JsonTreeNode({
   // Boolean: #0000ff (Blue)
   // Null: #808080 (Gray)
 
+  /** Returns a colored span for scalar (leaf) values; returns null for objects/arrays. */
   const renderValue = () => {
     if (value === null) return <span className="font-bold text-gray-500">null</span>;
     if (typeof value === "string") return <span className="text-[#008000]">&quot;{value}&quot;</span>;
@@ -68,19 +103,21 @@ function JsonTreeNode({
     return null;
   };
 
+  /** Returns a collapsed summary badge (e.g. "Array[3]") shown when the node is closed. */
   const renderPreview = () => {
     if (isArray) return <span className="text-gray-500">Array[{value.length}]</span>;
     if (isObject) return <span className="text-gray-500">Object{`{${Object.keys(value).length}}`}</span>;
     return null;
   };
 
+  // Clamp depth to the last pre-declared class; beyond 10 levels use the max indent
   const indentClass = JSON_INDENT[Math.min(depth, 10)] ?? 'pl-[200px]';
 
   return (
     <div className="font-mono text-[13px] leading-5">
       <div className={`group flex items-start hover:bg-gray-100 dark:hover:bg-gray-800${indentClass ? ` ${indentClass}` : ''}`}>
 
-        {/* Icon / Spacer */}
+        {/* Toggle icon for expandable nodes; empty spacer otherwise to preserve alignment */}
         <div className="mr-1 mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center">
           {isExpandable ? (
             <button
@@ -100,6 +137,7 @@ function JsonTreeNode({
 
         {/* Content */}
         <div className="flex flex-wrap items-center break-all">
+          {/* Key label is omitted at the root level and for array elements */}
           {label && (
             <span className="mr-1 text-[#795da3]">
               {label}:
@@ -114,9 +152,11 @@ function JsonTreeNode({
           ) : (
             <>
               {isOpen ? (
+                // Opening bracket is shown inline with the key when expanded
                 <span>{isArray ? "[" : "{"}</span>
               ) : (
                 <>
+                  {/* Collapsed: show summary count badge instead of bracket */}
                   {renderPreview()}
                 </>
               )}
@@ -125,7 +165,7 @@ function JsonTreeNode({
         </div>
       </div>
 
-      {/* Children */}
+      {/* Recursively render children only when this node is expanded */}
       {isExpandable && isOpen && (
         <div>
           {isArray
@@ -137,6 +177,7 @@ function JsonTreeNode({
                 depth={depth + 1}
                 expanded={expanded}
                 onToggle={onToggle}
+                // Trailing comma omitted on the last element (matches JSON syntax)
                 isLast={index === value.length - 1}
               />
             ))
@@ -152,7 +193,7 @@ function JsonTreeNode({
                 isLast={index === arr.length - 1}
               />
             ))}
-          {/* Closing Brace/Bracket */}
+          {/* Closing bracket rendered at the same indent level as the opening line */}
           <div className={`group flex items-start hover:bg-gray-100 dark:hover:bg-gray-800${indentClass ? ` ${indentClass}` : ''}`}>
             <div className="mr-1 flex h-4 w-4 flex-shrink-0" /> {/* Spacer for icon alignment */}
             <div className="text-gray-800 dark:text-gray-300">
@@ -166,7 +207,13 @@ function JsonTreeNode({
   );
 }
 
+/**
+ * Collapsible JSON tree viewer; shows an error state or empty state when
+ * data is unavailable. Expand/collapse state is owned here so it persists
+ * while the user edits in the sibling text tab.
+ */
 export default function JsonViewer({ data, error }: JsonViewerProps) {
+  // Flat map of path → isOpen; "root" pre-seeded as true so the top level is visible
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ root: true });
 
   const handleToggle = (path: string) => {

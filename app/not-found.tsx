@@ -1,3 +1,14 @@
+/**
+ * Custom 404 page.
+ *
+ * Next.js activates this component automatically in two situations:
+ * 1. A route segment calls `notFound()` (e.g. the tool page when a slug is
+ *    missing from the registry).
+ * 2. No route matches the requested URL at all.
+ *
+ * No explicit routing configuration is required — the filename `not-found.tsx`
+ * at the `app/` root is the Next.js App Router convention for the global 404.
+ */
 import Link from "next/link";
 
 export default function NotFound() {

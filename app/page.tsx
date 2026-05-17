@@ -1,3 +1,19 @@
+/**
+ * Home / gallery page — the site's entry point.
+ *
+ * This is a React Server Component (no "use client" directive), so it renders
+ * to static HTML at build time. There is no per-request data fetching, which
+ * means Next.js can fully pre-render and cache it as a static page.
+ *
+ * `toolSummaries` is a plain JS array derived from the tool registry at build
+ * time; it carries only the display fields (title, description, slug, icon)
+ * that ToolGallery needs — the heavy tool component code is never loaded on
+ * this page, keeping the initial bundle small.
+ *
+ * Decorative background elements (dot-grid, gradient orb) are marked
+ * `aria-hidden` and `pointer-events-none` so they don't affect accessibility
+ * or user interaction.
+ */
 import Link from "next/link";
 import { Terminal, Zap, Globe, Star, GitPullRequest, CircleDot } from "lucide-react";
 
@@ -83,7 +99,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* ── Gallery ── */}
+        {/* ── Gallery: receives the static summary list from the tool registry ── */}
         <ToolGallery tools={toolSummaries} />
 
         {/* ── Footer ── */}
@@ -135,6 +151,7 @@ export default function HomePage() {
               Chandan Singh — Mobile & Website Engineer
             </a>
 
+            {/* Privacy Policy link — required by CLAUDE.md rule 12 for any public-facing site */}
             <Link
               href="/privacy"
               className="text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
@@ -147,4 +164,3 @@ export default function HomePage() {
     </main>
   );
 }
-
