@@ -20,10 +20,12 @@
  */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Delete, Clock, Tag, Percent, Scale, Calculator } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Delete, Clock, Tag, Percent, Scale, Calculator, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import WeightPriceCalculator from "./WeightPriceCalculator";
+import { useCopyFlag } from "@/lib/hooks/useCopyFlag";
+import { copyToClipboard } from "@/lib/clipboard";
 
 type CalcTab = "calculator" | "weight";
 
@@ -33,6 +35,25 @@ const MAX_HISTORY = 50;
 const ALLOWED_RE = /^[0-9+\-*/().%\s]*$/;
 
 type HistoryItem = { expression: string; result: string; timestamp: number };
+
+/**
+ * Formats a history entry timestamp relative to now so it stays meaningful
+ * across days without consuming much space in the history panel.
+ *   Same calendar day  → "10:30 AM"
+ *   Previous day       → "Yesterday 10:30 AM"
+ *   Older              → "Nov 15 10:30 AM"
+ */
+function formatTimestamp(ts: number): string {
+  const date = new Date(ts);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (date.toDateString() === now.toDateString()) return timeStr;
+  if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${timeStr}`;
+  return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${timeStr}`;
+}
 
 /**
  * Evaluates an arithmetic string without eval/new Function (CSP-safe).
@@ -159,8 +180,19 @@ export default function BasicCalculator() {
   const [activeQuickAction, setActiveQuickAction] = useState<"gst" | "discount" | null>(null);
   const [lastFlash, setLastFlash] = useState<"gst" | "discount" | null>(null);
   const [quickPct, setQuickPct] = useState("");
+  // Tracks whether the last action was an evaluation — used by appendToExpression
+  // to decide whether a digit starts a fresh expression or continues the current one.
+  const [justEvaled, setJustEvaled] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const quickPctRef = useRef<HTMLInputElement>(null);
+  // Mirrors of mutable state used inside the global keyboard useEffect so it
+  // never has to be re-registered on every keystroke (stale closure prevention).
+  const expressionRef = useRef(expression);
+  const justEvaledRef = useRef(justEvaled);
+  expressionRef.current = expression;
+  justEvaledRef.current = justEvaled;
+
+  const { isCopied: resultCopied, trigger: triggerResultCopy } = useCopyFlag();
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -181,45 +213,62 @@ export default function BasicCalculator() {
     }
   }, [history]);
 
-  const appendToExpression = (char: string) => {
-    setExpression((prev) => prev + char);
+  // Stable callbacks — read live values from refs instead of closing over state
+  // so they can be added to the global keyboard useEffect deps array without
+  // causing it to re-register on every keystroke.
+
+  const appendToExpression = useCallback((char: string) => {
+    const wasEvaled = justEvaledRef.current;
+    if (wasEvaled) {
+      // After =: a digit/dot starts a new expression; an operator chains onto
+      // the result (e.g. pressing + after "= 8" gives "8+", not a blank "+" ).
+      setExpression(/[0-9.]/.test(char) ? char : expressionRef.current + char);
+      setJustEvaled(false);
+    } else {
+      setExpression((prev) => prev + char);
+    }
     setError(null);
     inputRef.current?.focus();
-  };
+  }, []);
 
-  const handleEvaluate = () => {
+  const handleEvaluate = useCallback(() => {
+    const expr = expressionRef.current;
     try {
-      const result = safeEval(expression);
+      const result = safeEval(expr);
       const item: HistoryItem = {
-        expression: expression.trim(),
+        expression: expr.trim(),
         result,
         timestamp: Date.now(),
       };
       // Prepend newest entry and keep only the last MAX_HISTORY items.
       setHistory((prev) => [item, ...prev].slice(0, MAX_HISTORY));
       setExpression(result);
+      setJustEvaled(true);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid expression");
     }
-  };
+  }, []);
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setExpression("");
+    setJustEvaled(false);
     setError(null);
     inputRef.current?.focus();
-  };
+  }, []);
 
-  const handleBackspace = () => {
+  const handleBackspace = useCallback(() => {
     setExpression((prev) => prev.slice(0, -1));
+    setJustEvaled(false);
     setError(null);
     inputRef.current?.focus();
-  };
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (ALLOWED_RE.test(val)) {
       setExpression(val);
+      setJustEvaled(false);
       setError(null);
     }
   };
@@ -229,12 +278,47 @@ export default function BasicCalculator() {
       e.preventDefault();
       handleEvaluate();
     }
+    // Escape clears the expression when the input has focus.
+    if (e.key === "Escape") {
+      e.preventDefault();
+      handleClear();
+    }
   };
+
+  // Global keyboard handler — lets users type calculations without first
+  // clicking into the expression field. Skips when focus is inside any
+  // input or textarea (those elements handle their own keys natively).
+  // Re-registers only when the active tab changes; stale state is read
+  // through expressionRef / justEvaledRef.
+  useEffect(() => {
+    if (activeTab !== "calculator") return;
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      if (/^[0-9.]$/.test(e.key) || "+-*/()%".includes(e.key)) {
+        e.preventDefault();
+        appendToExpression(e.key);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        handleEvaluate();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleClear();
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        handleBackspace();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeTab, appendToExpression, handleEvaluate, handleClear, handleBackspace]);
 
   const clearHistory = () => setHistory([]);
 
   const loadHistoryItem = (item: HistoryItem) => {
     setExpression(item.expression);
+    setJustEvaled(false);
     setError(null);
     inputRef.current?.focus();
   };
@@ -251,15 +335,13 @@ export default function BasicCalculator() {
   };
 
   /**
-   * Percentage helper that avoids IEEE-754 drift for typical financial inputs.
-   * Multiplying by 1e10 before rounding lifts the value out of the
-   * sub-integer floating-point region where precision is lost, then
-   * divides by 1e12 (= 1e10 × 100) to yield (value * rate / 100).
-   * Example without trick: 100 * 0.18 → 18.000000000000004
-   * Example with trick:    Math.round(100 * 0.18 * 1e10) / 1e12 → 18
+   * Returns `value * rate / 100` trimmed to 12 significant figures to avoid
+   * IEEE-754 drift (e.g. 100 * 0.18 → 18, not 18.000000000000004).
+   * Uses toPrecision(12) rather than the 1e10/1e12 multiply trick, which
+   * overflows Number.MAX_SAFE_INTEGER for large input values.
    */
   const pct = (value: number, rate: number): number =>
-    Math.round(value * rate * 1e10) / 1e12;
+    parseFloat((value * rate / 100).toPrecision(12));
 
   const triggerFlash = (type: "gst" | "discount") => {
     setLastFlash(type);
@@ -267,6 +349,7 @@ export default function BasicCalculator() {
   };
 
   const applyGst = (rate: number) => {
+    if (rate > 100) { setError("GST rate cannot exceed 100%"); return; }
     const val = getCurrentValue();
     if (val === null) { setError("Enter an amount first"); return; }
     const tax = pct(val, rate);
@@ -279,6 +362,7 @@ export default function BasicCalculator() {
     };
     setHistory((prev) => [item, ...prev].slice(0, MAX_HISTORY));
     setExpression(resultStr);
+    setJustEvaled(true);
     setError(null);
     setActiveQuickAction(null);
     setQuickPct("");
@@ -287,6 +371,7 @@ export default function BasicCalculator() {
   };
 
   const applyDiscount = (rate: number) => {
+    if (rate > 100) { setError("Discount cannot exceed 100%"); return; }
     const val = getCurrentValue();
     if (val === null) { setError("Enter an amount first"); return; }
     const discount = pct(val, rate);
@@ -299,11 +384,22 @@ export default function BasicCalculator() {
     };
     setHistory((prev) => [item, ...prev].slice(0, MAX_HISTORY));
     setExpression(resultStr);
+    setJustEvaled(true);
     setError(null);
     setActiveQuickAction(null);
     setQuickPct("");
     triggerFlash("discount");
     inputRef.current?.focus();
+  };
+
+  const handleCopyResult = async () => {
+    if (!expression) return;
+    try {
+      await copyToClipboard(expression);
+      triggerResultCopy();
+    } catch {
+      // Clipboard unavailable — silently ignore
+    }
   };
 
   const buttonClass = (type: CalcButton["type"]) =>
@@ -363,22 +459,36 @@ export default function BasicCalculator() {
       <div className="w-full max-w-xs space-y-4">
         {/* Expression input */}
         <div className="space-y-1">
-          <input
-            ref={inputRef}
-            type="text"
-            aria-label="Expression"
-            value={expression}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder="0"
-            spellCheck={false}
-            autoComplete="off"
-            className={cn(
-              "w-full rounded-xl border px-4 py-3 text-right font-mono text-2xl",
-              "bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring",
-              error ? "border-destructive" : "border-border/60"
-            )}
-          />
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              aria-label="Expression"
+              value={expression}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder="0"
+              spellCheck={false}
+              autoComplete="off"
+              className={cn(
+                "w-full rounded-xl border px-4 py-3 pr-10 text-right font-mono text-2xl",
+                "bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring",
+                error ? "border-destructive" : "border-border/60"
+              )}
+            />
+            {/* Copy button — fades in when expression is non-empty */}
+            <button
+              type="button"
+              aria-label="Copy result"
+              disabled={!expression}
+              onClick={() => void handleCopyResult()}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-0 transition-opacity"
+            >
+              {resultCopied
+                ? <Check className="h-4 w-4 text-success" />
+                : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
           {error && (
             <p className="text-right text-xs text-destructive" role="alert">
               {error}
@@ -621,7 +731,7 @@ export default function BasicCalculator() {
                   = {item.result}
                 </p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {new Date(item.timestamp).toLocaleTimeString()}
+                  {formatTimestamp(item.timestamp)}
                 </p>
               </button>
             ))
