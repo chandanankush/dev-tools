@@ -10,17 +10,23 @@ import uuidThumbnail from "@/public/thumbs/uuid.png";
 import type { ComponentType } from "react";
 import type { StaticImageData } from "next/image";
 
-export type ToolMeta = {
-  slug: string;
+export type ToolSearchable = {
   title: string;
-  description: string;
   tags: string[];
-  thumbnail: StaticImageData;
-  icon?: string;
-  component: () => Promise<{ default: ComponentType }>; // lazy-loaded per tool
 };
 
-export type ToolSummary = Omit<ToolMeta, "component" | "thumbnail"> & {
+export type ToolMeta = ToolSearchable & {
+  slug: string;
+  description: string;
+  thumbnail: StaticImageData;
+  icon?: string;
+  component: () => Promise<{ default: ComponentType }>;
+};
+
+export type ToolSummary = ToolSearchable & {
+  slug: string;
+  description: string;
+  icon?: string;
   thumbnail: string;
 };
 

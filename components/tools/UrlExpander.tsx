@@ -145,7 +145,7 @@ export default function UrlExpander() {
                           href={result.longUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="break-all text-emerald-600 hover:underline"
+                          className="break-all text-success hover:underline"
                         >
                           {result.longUrl}
                         </a>

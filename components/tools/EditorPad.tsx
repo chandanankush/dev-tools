@@ -46,6 +46,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useCopyFlag } from "@/lib/hooks/useCopyFlag";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -416,7 +417,7 @@ export default function EditorPad() {
   const [activeId, setActiveId]             = useState<string | null>(null);
   const [renamingId, setRenamingId]         = useState<string | null>(null);
   const [renameValue, setRenameValue]       = useState("");
-  const [copied, setCopied]                 = useState(false);
+  const { isCopied: copied, trigger: triggerCopy } = useCopyFlag();
   const [wordWrap, setWordWrap]             = useState(true);
   const [fontSize, setFontSize]             = useState(1); // index into FONT_SIZE_OPTIONS
   const [showFindReplace, setShowFindReplace] = useState(false);
@@ -471,6 +472,13 @@ export default function EditorPad() {
       }, DEBOUNCE_MS);
     },
   });
+
+  // Cancel any pending debounce save when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   // ─── Mount & initial load ───────────────────────────────────────────────────
 
@@ -693,8 +701,7 @@ export default function EditorPad() {
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(getPlainText());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      triggerCopy();
     } catch {
       // Clipboard write not available
     }
@@ -1037,7 +1044,7 @@ export default function EditorPad() {
               title="Copy all text"
             >
               {copied
-                ? <Check className="h-3.5 w-3.5 text-emerald-500" />
+                ? <Check className="h-3.5 w-3.5 text-success" />
                 : <Copy className="h-3.5 w-3.5" />}
             </button>
           </div>

@@ -426,9 +426,9 @@ export default function BasicCalculator() {
                 "flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
                 "disabled:cursor-not-allowed disabled:opacity-40",
                 lastFlash === "gst"
-                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                  ? "border-success bg-success/20 text-success"
                   : activeQuickAction === "gst"
-                    ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    ? "border-success/60 bg-success/10 text-success"
                     : "border-border/60 bg-card text-card-foreground hover:bg-muted/60"
               )}
             >
@@ -455,14 +455,14 @@ export default function BasicCalculator() {
                     if (e.key === "Escape") { setActiveQuickAction(null); setQuickPct(""); }
                   }}
                   autoFocus
-                  className="w-full rounded-lg border border-emerald-500/40 bg-emerald-50 px-3 py-1.5 text-sm font-mono text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  className="w-full rounded-lg border border-success/40 bg-success/5 px-3 py-1.5 text-sm font-mono text-success focus:outline-none focus:ring-2 focus:ring-success"
                 />
-                <span className="text-sm text-emerald-700 dark:text-emerald-300">%</span>
+                <span className="text-sm text-success">%</span>
                 <button
                   type="button"
                   onClick={() => { const r = parseFloat(quickPct); if (isFinite(r) && r > 0) applyGst(r); }}
                   disabled={!quickPct || parseFloat(quickPct) <= 0}
-                  className="rounded-lg border border-emerald-500/50 bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-40"
+                  className="rounded-lg border border-success/50 bg-success px-3 py-1.5 text-xs font-semibold text-success-foreground transition-colors hover:bg-success/90 disabled:opacity-40"
                 >
                   Apply
                 </button>
@@ -481,9 +481,9 @@ export default function BasicCalculator() {
                 "flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
                 "disabled:cursor-not-allowed disabled:opacity-40",
                 lastFlash === "discount"
-                  ? "border-rose-500 bg-rose-500/20 text-rose-700 dark:text-rose-300"
+                  ? "border-destructive bg-destructive/20 text-destructive"
                   : activeQuickAction === "discount"
-                    ? "border-rose-500/60 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                    ? "border-destructive/60 bg-destructive/10 text-destructive"
                     : "border-border/60 bg-card text-card-foreground hover:bg-muted/60"
               )}
             >
@@ -510,14 +510,14 @@ export default function BasicCalculator() {
                     if (e.key === "Escape") { setActiveQuickAction(null); setQuickPct(""); }
                   }}
                   autoFocus
-                  className="w-full rounded-lg border border-rose-500/40 bg-rose-50 px-3 py-1.5 text-sm font-mono text-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-400 dark:bg-rose-950/40 dark:text-rose-200"
+                  className="w-full rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-sm font-mono text-destructive focus:outline-none focus:ring-2 focus:ring-destructive"
                 />
-                <span className="text-sm text-rose-700 dark:text-rose-300">%</span>
+                <span className="text-sm text-destructive">%</span>
                 <button
                   type="button"
                   onClick={() => { const r = parseFloat(quickPct); if (isFinite(r) && r > 0) applyDiscount(r); }}
                   disabled={!quickPct || parseFloat(quickPct) <= 0}
-                  className="rounded-lg border border-rose-500/50 bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-600 disabled:opacity-40"
+                  className="rounded-lg border border-destructive/50 bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-40"
                 >
                   Apply
                 </button>

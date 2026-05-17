@@ -30,18 +30,18 @@ interface ToolCardProps {
 }
 
 const iconConfig: Record<string, { icon: LucideIcon; color: string; bg: string }> = {
-  braces:      { icon: Braces,      color: "text-blue-500",    bg: "bg-blue-500/10"    },
-  clock:       { icon: Clock,       color: "text-violet-500",  bg: "bg-violet-500/10"  },
-  globe2:      { icon: Globe,       color: "text-teal-500",    bg: "bg-teal-500/10"    },
-  key:         { icon: KeyRound,    color: "text-rose-500",   bg: "bg-rose-500/10"    },
-  fingerprint: { icon: Fingerprint, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  tree:        { icon: ListTree,    color: "text-indigo-500",  bg: "bg-indigo-500/10"  },
-  link:        { icon: Link2,       color: "text-amber-500",   bg: "bg-amber-500/10"   },
-  qrcode:      { icon: QrCode,      color: "text-cyan-500",    bg: "bg-cyan-500/10"    },
-  binary:      { icon: Binary,      color: "text-pink-500",    bg: "bg-pink-500/10"    },
-  shield:      { icon: ShieldCheck, color: "text-orange-500",  bg: "bg-orange-500/10"  },
-  calculator:  { icon: Calculator,  color: "text-sky-500",     bg: "bg-sky-500/10"     },
-  default:     { icon: Sparkles,    color: "text-primary",     bg: "bg-primary/10"     },
+  braces:      { icon: Braces,      color: "text-primary",            bg: "bg-primary/10"            },
+  clock:       { icon: Clock,       color: "text-primary",            bg: "bg-primary/10"            },
+  globe2:      { icon: Globe,       color: "text-secondary-foreground", bg: "bg-secondary"           },
+  key:         { icon: KeyRound,    color: "text-secondary-foreground", bg: "bg-secondary"           },
+  fingerprint: { icon: Fingerprint, color: "text-primary",            bg: "bg-primary/10"            },
+  tree:        { icon: ListTree,    color: "text-secondary-foreground", bg: "bg-secondary"           },
+  link:        { icon: Link2,       color: "text-muted-foreground",   bg: "bg-muted"                 },
+  qrcode:      { icon: QrCode,      color: "text-muted-foreground",   bg: "bg-muted"                 },
+  binary:      { icon: Binary,      color: "text-primary",            bg: "bg-primary/10"            },
+  shield:      { icon: ShieldCheck, color: "text-secondary-foreground", bg: "bg-secondary"           },
+  calculator:  { icon: Calculator,  color: "text-muted-foreground",   bg: "bg-muted"                 },
+  default:     { icon: Sparkles,    color: "text-primary",            bg: "bg-primary/10"            },
 };
 
 export function ToolCard({ slug, title, description, icon, className }: ToolCardProps) {
