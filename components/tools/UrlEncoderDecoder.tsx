@@ -1,3 +1,20 @@
+/**
+ * UrlEncoderDecoder — percent-encode or decode URL components in the browser.
+ *
+ * Uses the native `encodeURIComponent` / `decodeURIComponent` APIs rather than
+ * a custom implementation, so the output exactly matches what browsers and most
+ * web frameworks expect. These functions operate on individual URL components
+ * (query params, path segments) — they will encode characters like `/` and `?`
+ * that are meaningful in a full URL, which is intentional for the encode mode.
+ *
+ * `decodeUrl` wraps `decodeURIComponent` in a try/catch because it throws a
+ * URIError for malformed sequences like `%GG` — the error is surfaced as a
+ * user-readable message rather than an unhandled exception.
+ *
+ * State management mirrors Base64Utility: two independent copy flags, shared
+ * error state cleared on mode switch.
+ */
+
 "use client";
 
 import { useState } from "react";

@@ -1,3 +1,47 @@
+/**
+ * EditorPad — multi-note browser notepad with plain text, rich text, and
+ * Markdown modes.
+ *
+ * Persistence:
+ * - All notes are stored in localStorage under `STORAGE_KEY`. `persistNotes`
+ *   wraps the write in a try/catch so quota-exceeded errors in private browsing
+ *   don't crash the component — the note is still visible in memory for the
+ *   session.
+ * - The active note ID is stored separately under `ACTIVE_KEY` so the user
+ *   returns to the same note on reload.
+ * - Auto-save is debounced by `DEBOUNCE_MS` (500 ms) to avoid writing on every
+ *   keystroke. `saveTimerRef` holds the pending timeout ID so it can be
+ *   cancelled on mode switch or unmount. An unmount cleanup effect (bare `useEffect`
+ *   with empty deps) cancels any pending timer, preventing a state update on an
+ *   unmounted component from the test suite.
+ *
+ * Tiptap (rich text) sync:
+ * - `activeIdRef` mirrors `activeId` state in a ref so the Tiptap `onUpdate`
+ *   callback can read the current active note ID without being captured in a
+ *   stale closure. The ref is updated synchronously on every render.
+ * - When the active note changes, the Tiptap editor content is synced inside
+ *   a `setNotes` callback (functional update) so `notes` is not a dependency
+ *   of the sync effect — if it were, every keystroke would trigger a re-sync.
+ *   The `// eslint-disable-next-line` is intentional: we deliberately omit
+ *   `notes` from the deps.
+ *
+ * Find & Replace:
+ * - Plain text and Markdown use a simple string replace (safe — no HTML).
+ * - Rich text uses `safeReplaceInHTML` which walks the parsed DOM's text nodes
+ *   only, leaving tag names and attributes untouched. This prevents accidental
+ *   replacement of HTML attribute values that happen to contain the search term.
+ *
+ * Mode switching:
+ * - `switchToMode` attempts a lossless conversion between modes where possible:
+ *   plain → rich wraps each line in <p>; rich → plain extracts plain text;
+ *   plain ↔ markdown is zero-loss (raw text is valid Markdown).
+ *
+ * Download:
+ * - Rich text exports as a minimal standalone HTML document with inline styles
+ *   so it renders correctly when opened in any browser without this app's CSS.
+ * - Markdown exports as `.md`; plain text as `.txt`.
+ */
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";

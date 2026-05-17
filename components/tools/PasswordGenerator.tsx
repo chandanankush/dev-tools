@@ -1,3 +1,28 @@
+/**
+ * PasswordGenerator — generates cryptographically random passwords with
+ * configurable length and character sets.
+ *
+ * Security decisions:
+ * - `unbiasedRandom(n)` uses rejection sampling instead of `% n` on a
+ *   `crypto.getRandomValues()` result to eliminate modulo bias. See CLAUDE.md
+ *   rule 1 for the full explanation and the banned `% n` pattern.
+ * - Fisher-Yates shuffle using `unbiasedRandom` ensures the required characters
+ *   (one from each selected set) are placed at uniformly random positions rather
+ *   than always at the start.
+ * - `navigator.clipboard.writeText` is called directly in `copyPassword` (not
+ *   via `copyToClipboard`) because the password display doesn't need an error
+ *   surface — the copy button just silently fails if the API is unavailable.
+ *
+ * UX decisions:
+ * - At least one character from each selected set is guaranteed (`required` array
+ *   before the shuffle), so "uppercase + numbers" always produces a password with
+ *   both, even at short lengths.
+ * - The user cannot deselect all sets: `toggleSet` returns the unchanged set
+ *   when it would become empty, keeping the generator always functional.
+ * - `regenerate` is a `useCallback` with `[length, sets, customSymbols]` deps
+ *   so the `useEffect` that calls it re-runs exactly when those inputs change.
+ */
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";

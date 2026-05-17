@@ -1,3 +1,18 @@
+/**
+ * Privacy Policy page — required for any public-facing site (see CLAUDE.md rule 12).
+ *
+ * Discloses data practices honestly: most tools are fully client-side and send
+ * nothing to the server; the Short URL Expander is the one exception and is
+ * called out explicitly.
+ *
+ * `LAST_UPDATED` is a string constant rather than a computed date so that the
+ * "last updated" date only changes when the policy is intentionally revised —
+ * not on every rebuild. Update it alongside any material policy change.
+ *
+ * The `Section` helper reduces repetition for the consistent heading + body
+ * layout used across every policy section.
+ */
+
 import type { Metadata } from "next";
 import Link from "next/link";
 

@@ -1,3 +1,18 @@
+/**
+ * UrlExpander — client UI for the server-side /api/expand-url endpoint.
+ *
+ * URL expansion is intentionally server-side (see app/api/expand-url/route.ts)
+ * so this component is a thin form + results table that delegates all HTTP work
+ * to the API route. No URL is fetched directly from the browser.
+ *
+ * `parseUrls` splits on any whitespace so users can paste one URL per line or
+ * space-separated — both are natural for copy-pasting from other tools.
+ *
+ * Results are displayed in a table keyed by `${result.shortUrl}-${index}`
+ * rather than shortUrl alone so the list renders correctly if the same URL
+ * appears twice in the input.
+ */
+
 "use client";
 
 import { useState } from "react";

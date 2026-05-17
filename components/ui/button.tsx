@@ -1,3 +1,17 @@
+/**
+ * Button — the primary interactive element used across all tool UIs.
+ *
+ * Design decisions:
+ * - `asChild` (Radix Slot pattern) lets any element inherit Button styles
+ *   without nesting a <button> inside an <a> or <Link>, which would be invalid
+ *   HTML. Pass `asChild` and make the first child the actual element.
+ * - Variant and size styles are kept in static record objects (`variantClasses`,
+ *   `sizeClasses`) so they are easy to scan and extend without logic branches.
+ * - All variants set `focus-visible:ring` for accessible keyboard navigation.
+ * - `disabled:pointer-events-none` on the base class prevents click handlers
+ *   from firing even when `onClick` is set without checking `disabled` manually.
+ */
+
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 

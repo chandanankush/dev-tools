@@ -1,3 +1,23 @@
+/**
+ * Root layout — wraps every page in the application.
+ *
+ * Key responsibilities:
+ * 1. Nonce-based CSP: `proxy.ts` generates a per-request nonce and forwards it
+ *    via the `x-nonce` response header. We read it here with `headers()` and
+ *    stamp it onto the inline theme script so the strict-dynamic CSP allows it
+ *    without needing `'unsafe-inline'`.
+ * 2. Flash-free dark mode: THEME_SCRIPT runs synchronously before React hydrates,
+ *    so the correct `.dark` class is already on `<html>` when the first paint
+ *    happens — eliminating the light-flash that occurs when toggling is deferred
+ *    to a client effect.
+ * 3. Font loading: Inter is loaded via `next/font` (self-hosted by Next.js at
+ *    build time) and exposed as a CSS custom property so Tailwind's `font-sans`
+ *    utility can reference it.
+ * 4. ThemeProvider wraps the entire subtree so any component can call `useTheme`.
+ * 5. `suppressHydrationWarning` on `<html>` prevents React from complaining that
+ *    the server-rendered class list differs from the client's (the theme script
+ *    may have added `.dark` before hydration).
+ */
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
@@ -18,6 +38,8 @@ const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mopplications.com";
 export const metadata: Metadata = {
   title: {
     default: siteName,
+    // Tool pages use generateMetadata to set their own title; the template
+    // ensures the site name always appears as a suffix.
     template: `%s | ${siteName}`,
   },
   description,
@@ -77,15 +99,21 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  // `headers()` is a Next.js dynamic API — making this an async Server Component
+  // is required so Next.js opts the layout into dynamic rendering for nonce reads.
   const hdrs = await headers();
   const nonce = hdrs.get("x-nonce") ?? "";
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* nonce ties this inline script to the per-request CSP; without it the
+            strict-dynamic policy would block script execution. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} suppressHydrationWarning />
       </head>
       <body className={`${inter.variable} font-sans`}>
         <ThemeProvider>
+          {/* ThemeToggle is placed here so it renders on every page without
+              each page needing to include it explicitly. */}
           <ThemeToggle />
           {children}
         </ThemeProvider>

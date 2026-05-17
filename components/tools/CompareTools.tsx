@@ -1,3 +1,30 @@
+/**
+ * CompareTools — side-by-side diff viewer for JSON payloads and cURL commands.
+ *
+ * Architecture:
+ * - `CompareTools` is the root component that owns all state and delegates
+ *   rendering to `ComparePanel` (reusable input shell), `JsonDiffView`, and
+ *   `CurlDiffView`. This separation keeps the root lean and each view focused.
+ *
+ * JSON diff algorithm:
+ * - `buildSideBySideRows` walks two parsed JSON values recursively, producing a
+ *   flat array of `SideBySideRow` objects for rendering. Identical subtrees
+ *   emit "context" rows (both sides the same); changed values pair left
+ *   (removed) with right (added) rows. The recursion bottoms out at primitives.
+ * - `countJsonDiff` gives a summary count to show above the diff grid.
+ * - Indentation is expressed as a numeric level and mapped to a pre-computed
+ *   Tailwind padding class (`COMPARE_INDENT`) rather than computed with
+ *   `style={{ paddingLeft }}` — the latter requires `unsafe-inline` styles
+ *   which our strict CSP forbids.
+ *
+ * cURL parser:
+ * - `tokenize` handles backslash-escaped multi-line cURL commands and quoted
+ *   strings (single- and double-quoted) so pasted commands work regardless of
+ *   how they were copied from a terminal.
+ * - `diffCurl` compares method, URL, headers (by normalised lowercase key), and
+ *   body — the fields that matter most when debugging API calls.
+ */
+
 "use client";
 
 import { useState } from "react";

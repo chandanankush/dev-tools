@@ -1,3 +1,17 @@
+/**
+ * UuidGenerator — generates RFC 4122 v4 UUIDs in bulk.
+ *
+ * Uses the browser's built-in `crypto.randomUUID()` (available in all modern
+ * browsers and in Node.js 14.17+) rather than a third-party library, so there
+ * is no bundle size cost and the entropy comes directly from the OS CSPRNG.
+ *
+ * Count is capped at 100 in `createUuidList` — generating thousands of UUIDs
+ * would produce an enormous textarea value with no practical benefit.
+ *
+ * `regenerate` is wrapped in `useCallback` so the `useEffect` dependency array
+ * is stable: the effect only re-runs when `amount` changes, not on every render.
+ */
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";

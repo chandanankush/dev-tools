@@ -1,3 +1,26 @@
+/**
+ * TimestampConverter — converts Unix timestamps to human-readable dates and back.
+ *
+ * Both conversion directions are derived values (no convert button needed):
+ *   - `tsDate` and `dtDate` are computed inline from the current input strings
+ *     so the result updates immediately on every keystroke without a submit.
+ *   - Errors are similarly derived (`tsError`, `dtError`) rather than stored in
+ *     separate state, keeping the state surface minimal.
+ *
+ * The live "now" ticker re-runs on `unit` change so the displayed value is
+ * always in the currently selected unit (seconds or milliseconds) — a 1-second
+ * interval is accurate enough and avoids battery drain from a tighter loop.
+ *
+ * `formatDate` uses `Intl.DateTimeFormat` with `en-CA` locale because Canada
+ * uses ISO-like `YYYY-MM-DD` date format by default, giving output that is
+ * easy to parse and sort. The `.replace(", ", "T")` converts the locale's
+ * comma separator to a standard ISO 8601 datetime separator.
+ *
+ * `parseDateInput` delegates to `new Date(raw)` which accepts ISO 8601 strings
+ * and many common formats. The `isNaN` guard rejects inputs the Date constructor
+ * silently accepts as "Invalid Date".
+ */
+
 "use client";
 
 import { useEffect, useState } from "react";

@@ -1,3 +1,14 @@
+/**
+ * ThemeToggle — fixed-position button that switches between light and dark mode.
+ *
+ * Positioned at the top-right corner of the viewport (z-50 so it floats above
+ * content). The backdrop-blur gives the button visual separation from whatever
+ * content scrolls behind it without blocking it with an opaque panel.
+ *
+ * The aria-label changes with the current state so screen readers announce
+ * what the *next* action will be, not the current state.
+ */
+
 "use client";
 
 import { Moon, Sun } from "lucide-react";

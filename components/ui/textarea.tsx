@@ -1,3 +1,13 @@
+/**
+ * Textarea — thin styled wrapper around a native <textarea>.
+ *
+ * Mirrors the Input component's design: all base styles are centralised here,
+ * callers override via `className`. The `shadow-sm` on the textarea (but not
+ * the single-line Input) visually distinguishes multiline text areas in dense
+ * layouts. `forwardRef` lets parents attach a ref for programmatic focus or
+ * measuring the element's height.
+ */
+
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
