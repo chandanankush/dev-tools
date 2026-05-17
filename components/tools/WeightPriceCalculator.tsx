@@ -19,14 +19,18 @@
  * on change and silently discards invalid values rather than showing an error,
  * keeping the calculator-style UX frictionless.
  *
+ * History: results are saved explicitly via the "Save" button (not auto-saved
+ * on every keystroke) and persisted to localStorage so they survive page reloads.
+ * Up to MAX_HISTORY entries are kept; oldest are dropped when the cap is reached.
+ *
  * Currency is Indian Rupees (₹) and locale formatting uses `en-IN` (Indian
  * numbering system with lakh/crore separators).
  */
 
 "use client";
 
-import { useState, useCallback } from "react";
-import { RotateCcw, ArrowLeftRight, Scale } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { RotateCcw, ArrowLeftRight, Scale, Clock, Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,6 +38,19 @@ import { cn } from "@/lib/utils";
 type Unit = "per_kg" | "per_500g" | "per_100g" | "per_2kg";
 type RoundMode = "none" | "1" | "5" | "10";
 type CalcMode = "normal" | "reverse";
+
+type HistoryItem = {
+  mode: CalcMode;
+  breakdown: string;
+  resultLabel: string;
+  priceLabel: string;
+  timestamp: number;
+};
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STORAGE_KEY  = "wpc-history";
+const MAX_HISTORY  = 30;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -67,15 +84,38 @@ function fmt(n: number, decimals = 2): string {
   });
 }
 
+function formatTimestamp(ts: number): string {
+  const date      = new Date(ts);
+  const now       = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (date.toDateString() === now.toDateString())       return timeStr;
+  if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${timeStr}`;
+  return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${timeStr}`;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function WeightPriceCalculator() {
-  const [price, setPrice]       = useState("");
-  const [weight, setWeight]     = useState("");
+  const [price, setPrice]           = useState("");
+  const [weight, setWeight]         = useState("");
   const [totalPrice, setTotalPrice] = useState(""); // reverse mode input
-  const [unit, setUnit]         = useState<Unit>("per_kg");
-  const [roundMode, setRoundMode] = useState<RoundMode>("none");
-  const [mode, setMode]         = useState<CalcMode>("normal");
+  const [unit, setUnit]             = useState<Unit>("per_kg");
+  const [roundMode, setRoundMode]   = useState<RoundMode>("none");
+  const [mode, setMode]             = useState<CalcMode>("normal");
+  const [history, setHistory]       = useState<HistoryItem[]>([]);
+
+  // ─── Load history from localStorage ──────────────────────────────────────
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) setHistory(JSON.parse(stored) as HistoryItem[]);
+    } catch {
+      // ignore parse errors from corrupted storage
+    }
+  }, []);
 
   // ─── Derived calculations ─────────────────────────────────────────────────
 
@@ -117,12 +157,44 @@ export default function WeightPriceCalculator() {
 
   const result = compute();
 
+  // ─── Save to history ──────────────────────────────────────────────────────
+
+  const handleSave = useCallback(() => {
+    if (!result) return;
+
+    const resultLabel =
+      mode === "normal"
+        ? `₹${fmt(result.result)}`
+        : `${fmt(result.weightOut ?? 0, 3)} kg`;
+
+    const priceLabel = `₹${fmt(priceNum)} ${UNIT_LABELS[unit]}`;
+
+    const item: HistoryItem = {
+      mode,
+      breakdown:   result.breakdown,
+      resultLabel,
+      priceLabel,
+      timestamp:   Date.now(),
+    };
+
+    setHistory((prev) => {
+      const next = [item, ...prev].slice(0, MAX_HISTORY);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
+  }, [result, mode, priceNum, unit]);
+
   // ─── Clear ────────────────────────────────────────────────────────────────
 
   const handleClear = () => {
     setPrice("");
     setWeight("");
     setTotalPrice("");
+  };
+
+  const handleClearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   // ─── Input guard: no negatives ────────────────────────────────────────────
@@ -277,33 +349,43 @@ export default function WeightPriceCalculator() {
           "rounded-2xl border p-5 transition-all",
           result
             ? "border-primary/30 bg-primary/5"
-          : "border-border bg-muted/40"
+            : "border-border bg-muted/40"
         )}
       >
         {result ? (
-          mode === "normal" ? (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{result.breakdown}</p>
-              <p className="font-mono text-4xl font-bold tracking-tight text-foreground">
-                ₹{fmt(result.result)}
-              </p>
-              {roundMode !== "none" && (
-                <p className="text-xs text-muted-foreground">
-                  Exact: ₹{fmt(weightNum * result.pricePerKg)}
+          <>
+            {mode === "normal" ? (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">{result.breakdown}</p>
+                <p className="font-mono text-4xl font-bold tracking-tight text-foreground">
+                  ₹{fmt(result.result)}
                 </p>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{result.breakdown}</p>
-              <p className="font-mono text-4xl font-bold tracking-tight text-foreground">
-                {fmt(result.weightOut ?? 0, 3)} kg
-              </p>
-              <p className="text-xs text-muted-foreground">
-                = {fmt((result.weightOut ?? 0) * 1000, 0)} g
-              </p>
-            </div>
-          )
+                {roundMode !== "none" && (
+                  <p className="text-xs text-muted-foreground">
+                    Exact: ₹{fmt(weightNum * result.pricePerKg)}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">{result.breakdown}</p>
+                <p className="font-mono text-4xl font-bold tracking-tight text-foreground">
+                  {fmt(result.weightOut ?? 0, 3)} kg
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  = {fmt((result.weightOut ?? 0) * 1000, 0)} g
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleSave}
+              className="mt-3 flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              <Bookmark className="h-3.5 w-3.5" />
+              Save to history
+            </button>
+          </>
         ) : (
           <p className="text-center text-sm text-muted-foreground">
             {mode === "normal"
@@ -322,6 +404,59 @@ export default function WeightPriceCalculator() {
         <RotateCcw className="h-4 w-4" />
         Clear
       </button>
+
+      {/* History */}
+      {history.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              History
+            </div>
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              className="text-xs text-muted-foreground transition-colors hover:text-destructive"
+            >
+              Clear all
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {history.map((item, i) => (
+              <div
+                key={i}
+                className="flex items-start justify-between rounded-xl border border-border/80 bg-card px-4 py-3"
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <p className="truncate font-mono text-sm font-semibold text-foreground">
+                    {item.resultLabel}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {item.breakdown}
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    {item.priceLabel}
+                  </p>
+                </div>
+                <div className="ml-3 shrink-0 text-right">
+                  <span className={cn(
+                    "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                    item.mode === "normal"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-secondary text-secondary-foreground"
+                  )}>
+                    {item.mode === "normal" ? "→ Total" : "→ Weight"}
+                  </span>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatTimestamp(item.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
