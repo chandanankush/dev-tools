@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useCopyFlag } from "@/lib/hooks/useCopyFlag";
 
 const DEFAULT_SYMBOLS = "!@#$%^&*()-_=+[]{}|;:,.<>?";
 
@@ -86,13 +87,13 @@ export default function PasswordGenerator() {
   const [sets, setSets]       = useState<Set<CharSet>>(new Set(["uppercase", "lowercase", "numbers", "symbols"]));
   const [customSymbols, setCustomSymbols] = useState(DEFAULT_SYMBOLS);
   const [password, setPassword] = useState("");
-  const [copied, setCopied]   = useState(false);
+  const { isCopied: copied, trigger: triggerCopy, reset: resetCopy } = useCopyFlag();
   const [visible, setVisible] = useState(false);
 
   const regenerate = useCallback(() => {
     setPassword(generatePassword(length, sets, customSymbols));
-    setCopied(false);
-  }, [length, sets, customSymbols]);
+    resetCopy();
+  }, [length, sets, customSymbols, resetCopy]);
 
   useEffect(() => { regenerate(); }, [regenerate]);
 
@@ -112,8 +113,7 @@ export default function PasswordGenerator() {
   const copyPassword = async () => {
     if (!password) return;
     await navigator.clipboard.writeText(password);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    triggerCopy();
   };
 
   const score = scorePassword(password, length, sets);

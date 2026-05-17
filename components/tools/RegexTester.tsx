@@ -6,6 +6,7 @@ import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCopyFlag } from "@/lib/hooks/useCopyFlag";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -87,7 +88,7 @@ export default function RegexTester() {
   const [testText, setTestText] = useState(
     "The quick brown fox jumps over the lazy dog.\nPack my box with five dozen liquor jugs."
   );
-  const [copied, setCopied] = useState(false);
+  const copyFlag = useCopyFlag();
 
   const regex = useMemo(() => buildRegex(pattern, flags), [pattern, flags]);
   const isGlobal = flags.has("g");
@@ -119,8 +120,7 @@ export default function RegexTester() {
   const copyRegex = async () => {
     if (!pattern) return;
     await navigator.clipboard.writeText(`/${pattern}/${Array.from(flags).join("")}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    copyFlag.trigger();
   };
 
   return (
@@ -157,7 +157,7 @@ export default function RegexTester() {
             disabled={!pattern}
             aria-label="Copy regex"
           >
-            {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            {copyFlag.isCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
           </Button>
         </div>
         {patternError && (

@@ -1,34 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { decodeBase64, encodeBase64 } from "@/lib/base64";
+import { copyToClipboard } from "@/lib/clipboard";
+import { useCopyFlag } from "@/lib/hooks/useCopyFlag";
 
 type Mode = "encode" | "decode";
-
-function useCopyFlag() {
-  const [isCopied, setIsCopied] = useState(false);
-
-  const trigger = useCallback(() => {
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
-  }, []);
-
-  const reset = useCallback(() => setIsCopied(false), []);
-
-  return { isCopied, trigger, reset };
-}
-
-async function copyToClipboard(value: string) {
-  if (!value) return;
-  if (typeof navigator === "undefined" || !navigator.clipboard) {
-    throw new Error("Clipboard API is unavailable in this browser.");
-  }
-  await navigator.clipboard.writeText(value);
-}
 
 export default function Base64Utility() {
   const [mode, setMode] = useState<Mode>("encode");

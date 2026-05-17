@@ -1,26 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Copy, Check, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/clipboard";
+import { useCopyFlag } from "@/lib/hooks/useCopyFlag";
 
 type Unit = "seconds" | "milliseconds";
 type TZ = "local" | "utc";
-
-function useCopy() {
-  const [copied, setCopied] = useState(false);
-  const copy = useCallback(async (text: string) => {
-    if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, []);
-  return { copied, copy };
-}
 
 function nowInUnit(unit: Unit): string {
   const ms = Date.now();
@@ -64,7 +55,7 @@ export default function TimestampConverter() {
   const tsDate = parseTimestamp(tsInput, unit);
   const tsResult = tsDate ? formatDate(tsDate, tz) : null;
   const tsError = tsInput && !tsDate ? "Invalid timestamp" : null;
-  const tsCopy = useCopy();
+  const tsCopy = useCopyFlag();
 
   // Date → Timestamp
   const [dateInput, setDateInput] = useState(() => {
@@ -79,7 +70,7 @@ export default function TimestampConverter() {
       : dtDate.getTime().toString()
     : null;
   const dtError = dateInput && !dtDate ? "Invalid date" : null;
-  const dtCopy = useCopy();
+  const dtCopy = useCopyFlag();
 
   // Live "now" ticker
   const [nowTs, setNowTs] = useState(() => nowInUnit("seconds"));
@@ -173,11 +164,11 @@ export default function TimestampConverter() {
               <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{tz.toUpperCase()}</span>
               <button
                 type="button"
-                onClick={() => tsCopy.copy(tsResult)}
+                onClick={async () => { await copyToClipboard(tsResult); tsCopy.trigger(); }}
                 className="ml-1 text-muted-foreground hover:text-foreground"
                 aria-label="Copy result"
               >
-                {tsCopy.copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                {tsCopy.isCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
             {tsDate && (
@@ -227,11 +218,11 @@ export default function TimestampConverter() {
               <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{unit}</span>
               <button
                 type="button"
-                onClick={() => dtCopy.copy(dtResult)}
+                onClick={async () => { await copyToClipboard(dtResult!); dtCopy.trigger(); }}
                 className="ml-1 text-muted-foreground hover:text-foreground"
                 aria-label="Copy result"
               >
-                {dtCopy.copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                {dtCopy.isCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
           </div>
