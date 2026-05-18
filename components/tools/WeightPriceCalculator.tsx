@@ -19,9 +19,9 @@
  * on change and silently discards invalid values rather than showing an error,
  * keeping the calculator-style UX frictionless.
  *
- * History: results are saved explicitly via the "Save" button (not auto-saved
- * on every keystroke) and persisted to localStorage so they survive page reloads.
- * Up to MAX_HISTORY entries are kept; oldest are dropped when the cap is reached.
+ * History: results are auto-saved when the user clears the inputs (the natural
+ * "I'm done with this calculation" signal). Up to MAX_HISTORY entries are kept;
+ * oldest are dropped when the cap is reached. Each entry has a delete button.
  *
  * Currency is Indian Rupees (₹) and locale formatting uses `en-IN` (Indian
  * numbering system with lakh/crore separators).
@@ -30,7 +30,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { RotateCcw, ArrowLeftRight, Scale, Clock, Bookmark } from "lucide-react";
+import { RotateCcw, ArrowLeftRight, Scale, Clock, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ type HistoryItem = {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY  = "wpc-history";
-const MAX_HISTORY  = 30;
+const MAX_HISTORY  = 20;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -157,23 +157,19 @@ export default function WeightPriceCalculator() {
 
   const result = compute();
 
-  // ─── Save to history ──────────────────────────────────────────────────────
+  // ─── Auto-save on clear (mirrors BasicCalculator's save-on-evaluate pattern) ─
 
-  const handleSave = useCallback(() => {
-    if (!result) return;
-
+  const saveCurrentResult = useCallback((currentResult: NonNullable<ReturnType<typeof compute>>) => {
     const resultLabel =
       mode === "normal"
-        ? `₹${fmt(result.result)}`
-        : `${fmt(result.weightOut ?? 0, 3)} kg`;
-
-    const priceLabel = `₹${fmt(priceNum)} ${UNIT_LABELS[unit]}`;
+        ? `₹${fmt(currentResult.result)}`
+        : `${fmt(currentResult.weightOut ?? 0, 3)} kg`;
 
     const item: HistoryItem = {
       mode,
-      breakdown:   result.breakdown,
+      breakdown:   currentResult.breakdown,
       resultLabel,
-      priceLabel,
+      priceLabel:  `₹${fmt(priceNum)} ${UNIT_LABELS[unit]}`,
       timestamp:   Date.now(),
     };
 
@@ -182,14 +178,23 @@ export default function WeightPriceCalculator() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* quota */ }
       return next;
     });
-  }, [result, mode, priceNum, unit]);
+  }, [mode, priceNum, unit]);
 
   // ─── Clear ────────────────────────────────────────────────────────────────
 
   const handleClear = () => {
+    if (result) saveCurrentResult(result);
     setPrice("");
     setWeight("");
     setTotalPrice("");
+  };
+
+  const handleDeleteHistoryItem = (timestamp: number) => {
+    setHistory((prev) => {
+      const next = prev.filter((item) => item.timestamp !== timestamp);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
   };
 
   const handleClearHistory = () => {
@@ -232,7 +237,7 @@ export default function WeightPriceCalculator() {
       <div className="flex items-center gap-2 rounded-xl border border-border bg-muted p-1.5">
         <button
           type="button"
-          onClick={() => { setMode("normal"); handleClear(); }}
+          onClick={() => { if (mode !== "normal") handleClear(); setMode("normal"); }}
           className={cn(
             "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors",
             mode === "normal" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -243,7 +248,7 @@ export default function WeightPriceCalculator() {
         </button>
         <button
           type="button"
-          onClick={() => { setMode("reverse"); handleClear(); }}
+          onClick={() => { if (mode !== "reverse") handleClear(); setMode("reverse"); }}
           className={cn(
             "flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors",
             mode === "reverse" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -353,39 +358,29 @@ export default function WeightPriceCalculator() {
         )}
       >
         {result ? (
-          <>
-            {mode === "normal" ? (
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">{result.breakdown}</p>
-                <p className="font-mono text-4xl font-bold tracking-tight text-foreground">
-                  ₹{fmt(result.result)}
-                </p>
-                {roundMode !== "none" && (
-                  <p className="text-xs text-muted-foreground">
-                    Exact: ₹{fmt(weightNum * result.pricePerKg)}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">{result.breakdown}</p>
-                <p className="font-mono text-4xl font-bold tracking-tight text-foreground">
-                  {fmt(result.weightOut ?? 0, 3)} kg
-                </p>
+          mode === "normal" ? (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{result.breakdown}</p>
+              <p className="font-mono text-4xl font-bold tracking-tight text-foreground">
+                ₹{fmt(result.result)}
+              </p>
+              {roundMode !== "none" && (
                 <p className="text-xs text-muted-foreground">
-                  = {fmt((result.weightOut ?? 0) * 1000, 0)} g
+                  Exact: ₹{fmt(weightNum * result.pricePerKg)}
                 </p>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={handleSave}
-              className="mt-3 flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-            >
-              <Bookmark className="h-3.5 w-3.5" />
-              Save to history
-            </button>
-          </>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{result.breakdown}</p>
+              <p className="font-mono text-4xl font-bold tracking-tight text-foreground">
+                {fmt(result.weightOut ?? 0, 3)} kg
+              </p>
+              <p className="text-xs text-muted-foreground">
+                = {fmt((result.weightOut ?? 0) * 1000, 0)} g
+              </p>
+            </div>
+          )
         ) : (
           <p className="text-center text-sm text-muted-foreground">
             {mode === "normal"
@@ -423,9 +418,9 @@ export default function WeightPriceCalculator() {
           </div>
 
           <div className="space-y-2">
-            {history.map((item, i) => (
+            {history.map((item) => (
               <div
-                key={i}
+                key={item.timestamp}
                 className="flex items-start justify-between rounded-xl border border-border/80 bg-card px-4 py-3"
               >
                 <div className="min-w-0 space-y-0.5">
@@ -439,7 +434,15 @@ export default function WeightPriceCalculator() {
                     {item.priceLabel}
                   </p>
                 </div>
-                <div className="ml-3 shrink-0 text-right">
+                <div className="ml-3 flex shrink-0 flex-col items-end gap-1">
+                  <button
+                    type="button"
+                    aria-label="Delete entry"
+                    onClick={() => handleDeleteHistoryItem(item.timestamp)}
+                    className="text-muted-foreground/50 transition-colors hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                   <span className={cn(
                     "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
                     item.mode === "normal"
@@ -448,7 +451,7 @@ export default function WeightPriceCalculator() {
                   )}>
                     {item.mode === "normal" ? "→ Total" : "→ Weight"}
                   </span>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {formatTimestamp(item.timestamp)}
                   </p>
                 </div>
