@@ -30,6 +30,7 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=5000
 
 # Upgrade Alpine packages (picks up busybox CVE-2025-60876 when a fix lands)
 # and npm (fixes ip-address CVE-2026-42338 via npm 11.14.1+)
@@ -45,6 +46,6 @@ RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-EXPOSE 3000
+EXPOSE 5000
 
 CMD ["node", "server.js"]
