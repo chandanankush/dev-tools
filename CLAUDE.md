@@ -13,6 +13,20 @@ This file is read automatically on every session. All rules are mandatory.
 
 ---
 
+## Branch workflow — mandatory
+
+- **`main` is protected** — never commit directly to `main`.
+- **`development` is the default working branch.** All day-to-day work, experiments, and incremental commits go here.
+- At the start of every session, sync `development` with `main`:
+  ```bash
+  git checkout development && git pull origin main
+  ```
+- When a meaningful goal is complete (feature, bugfix, refactor), raise a PR from `development` → `main`. A "goal" is something coherent and shippable — not every commit, but not weeks of work either.
+- Feature branches (e.g. `feat/xyz`) may be cut from `development` for isolated work, then merged back into `development` before the PR to `main`.
+- Never raise a PR to `main` with failing tests or a broken build.
+
+---
+
 ## Before every commit — mandatory checklist
 
 Run these in order. Do not commit if any step fails.
