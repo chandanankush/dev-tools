@@ -45,7 +45,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import generatePDF from "react-to-pdf";
+import generatePDF, { Resolution } from "react-to-pdf";
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -805,11 +805,17 @@ export default function EditorPad() {
     if (!activeNote) return;
     const safeName = activeNote.title.replace(/[^a-z0-9_\- ]/gi, "_");
 
+    const pdfOptions = {
+      filename: `${safeName}.pdf`,
+      resolution: Resolution.HIGH,
+      canvas: { mimeType: "image/png" as const },
+    };
+
     if (activeNote.mode === "markdown" && mdView === "write" && !mdSplit) {
       handleMdViewChange("preview");
       setTimeout(() => {
         const getTargetElement = () => document.getElementById("pdf-target-md");
-        generatePDF(getTargetElement, { filename: `${safeName}.pdf` });
+        generatePDF(getTargetElement, pdfOptions);
       }, 100);
       return;
     }
@@ -821,7 +827,7 @@ export default function EditorPad() {
     const getTargetElement = () => document.getElementById(targetId);
     if (!getTargetElement()) return;
 
-    generatePDF(getTargetElement, { filename: `${safeName}.pdf` });
+    generatePDF(getTargetElement, pdfOptions);
   };
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
