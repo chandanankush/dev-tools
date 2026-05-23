@@ -45,6 +45,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import generatePDF from "react-to-pdf";
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -800,6 +801,29 @@ export default function EditorPad() {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadPdf = () => {
+    if (!activeNote) return;
+    const safeName = activeNote.title.replace(/[^a-z0-9_\- ]/gi, "_");
+
+    if (activeNote.mode === "markdown" && mdView === "write" && !mdSplit) {
+      handleMdViewChange("preview");
+      setTimeout(() => {
+        const getTargetElement = () => document.getElementById("pdf-target-md");
+        generatePDF(getTargetElement, { filename: `${safeName}.pdf` });
+      }, 100);
+      return;
+    }
+
+    let targetId = "pdf-target-plain";
+    if (activeNote.mode === "markdown") targetId = "pdf-target-md";
+    if (activeNote.mode === "rich") targetId = "pdf-target-rich";
+
+    const getTargetElement = () => document.getElementById(targetId);
+    if (!getTargetElement()) return;
+
+    generatePDF(getTargetElement, { filename: `${safeName}.pdf` });
+  };
+
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1083,6 +1107,14 @@ export default function EditorPad() {
             </button>
             <button
               type="button"
+              onClick={handleDownloadPdf}
+              className="rounded border px-2 text-[10px] font-bold uppercase transition-colors hover:bg-accent h-[26px] flex items-center justify-center"
+              title="Download as PDF"
+            >
+              PDF
+            </button>
+            <button
+              type="button"
               onClick={handleCopy}
               className="rounded border p-1.5 transition-colors hover:bg-accent"
               title="Copy all text"
@@ -1204,6 +1236,7 @@ export default function EditorPad() {
           <div className={cn("flex-1 overflow-hidden", fontSizeClass)}>
             {activeNote.mode === "plain" ? (
               <textarea
+                id="pdf-target-plain"
                 value={activeNote.content}
                 onChange={(e) => handlePlainChange(e.target.value)}
                 placeholder="Start typing…"
@@ -1229,7 +1262,7 @@ export default function EditorPad() {
                   />
                 )}
                 {(mdView === "preview" || mdSplit) && (
-                  <div className={cn(
+                  <div id="pdf-target-md" className={cn(
                     "editorpad-md-preview overflow-y-auto p-4",
                     mdSplit ? "h-full w-full md:w-1/2" : "h-full w-full",
                   )}>
@@ -1240,7 +1273,7 @@ export default function EditorPad() {
                 )}
               </div>
             ) : (
-              <div className="editorpad-rich h-full p-4">
+              <div id="pdf-target-rich" className="editorpad-rich h-full p-4">
                 <EditorContent editor={editor} />
               </div>
             )}
