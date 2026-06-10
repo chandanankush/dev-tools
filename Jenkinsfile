@@ -39,11 +39,17 @@ pipeline {
     string(
       name: 'REMOTE_RUN_ARGS',
       defaultValue: '',
-      description: 'Additional docker run flags (space-delimited)'
+      description: '''Additional docker run flags appended verbatim after the port and env flags.
+Examples (pick what you need, space-separated):
+  Resource limits:   --memory 512m --cpus 1.0
+  Log rotation:      --log-opt max-size=10m --log-opt max-file=3
+  Custom network:    --network my-net
+  Volume mount:      -v /host/data:/app/data:ro
+  Multiple together: --memory 512m --log-opt max-size=10m --network my-net'''
     )
     string(
       name: 'SSH_CREDENTIALS_ID',
-      defaultValue: 'remote-ssh-key',
+      defaultValue: 'pi-ssh-key',
       description: 'Jenkins credential ID for the SSH private key used to authenticate to the remote host'
     )
   }
