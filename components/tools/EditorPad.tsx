@@ -801,33 +801,78 @@ export default function EditorPad() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!activeNote) return;
     const safeName = activeNote.title.replace(/[^a-z0-9_\- ]/gi, "_");
 
-    const pdfOptions = {
-      filename: `${safeName}.pdf`,
-      resolution: Resolution.HIGH,
-      canvas: { mimeType: "image/png" as const },
-    };
-
-    if (activeNote.mode === "markdown" && mdView === "write" && !mdSplit) {
+    // If markdown is in write-only view, switch to preview so the rendered
+    // HTML exists in the DOM before we clone it, then restore after export.
+    const needsMdViewRestore =
+      activeNote.mode === "markdown" && mdView === "write" && !mdSplit;
+    if (needsMdViewRestore) {
       handleMdViewChange("preview");
-      setTimeout(() => {
-        const getTargetElement = () => document.getElementById("pdf-target-md");
-        generatePDF(getTargetElement, pdfOptions);
-      }, 100);
-      return;
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
     }
 
-    let targetId = "pdf-target-plain";
-    if (activeNote.mode === "markdown") targetId = "pdf-target-md";
-    if (activeNote.mode === "rich") targetId = "pdf-target-rich";
+    // Build an off-screen container that has no height or overflow constraints.
+    // Targeting the live editor elements directly causes html2canvas to capture
+    // only the visible portion (h-full + overflow-y-auto clip the content).
+    const container = document.createElement("div");
+    container.style.cssText =
+      "position:fixed;top:-9999px;left:-9999px;" +
+      "width:794px;box-sizing:border-box;padding:32px;" +
+      "background:#ffffff;color:#111111;" +
+      "font-family:ui-sans-serif,system-ui,sans-serif;" +
+      "font-size:14px;line-height:1.6;";
 
-    const getTargetElement = () => document.getElementById(targetId);
-    if (!getTargetElement()) return;
+    if (activeNote.mode === "plain") {
+      // html2canvas does not reliably capture <textarea> content; use <pre>.
+      const pre = document.createElement("pre");
+      pre.style.cssText =
+        "white-space:pre-wrap;word-break:break-word;margin:0;" +
+        "font-family:ui-monospace,monospace;font-size:13px;color:#111111;";
+      pre.textContent = activeNote.content;
+      container.appendChild(pre);
+    } else {
+      const srcId =
+        activeNote.mode === "markdown" ? "pdf-target-md" : "pdf-target-rich";
+      const src = document.getElementById(srcId);
+      if (src) {
+        const clone = src.cloneNode(true) as HTMLElement;
+        clone.style.overflow = "visible";
+        clone.style.height = "auto";
+        clone.style.maxHeight = "none";
+        container.appendChild(clone);
+      }
+    }
 
-    generatePDF(getTargetElement, pdfOptions);
+    document.body.appendChild(container);
+    try {
+      await generatePDF(() => container, {
+        filename: `${safeName}.pdf`,
+        resolution: Resolution.HIGH,
+        canvas: { mimeType: "image/png" as const },
+        overrides: {
+          canvas: {
+            // html2canvas clones the document before rendering. Removing the
+            // .dark class from the clone makes every CSS variable (--foreground,
+            // --muted, --border, etc.) resolve to its light-mode value, so the
+            // PDF always has dark text on a white background regardless of the
+            // active theme. This is the only reliable fix: JavaScript-set CSS
+            // custom properties on an ancestor are not consistently respected by
+            // html2canvas's internal stylesheet parser.
+            onclone: (clonedDoc: Document) => {
+              clonedDoc.documentElement.classList.remove("dark");
+            },
+          },
+        },
+      });
+    } finally {
+      document.body.removeChild(container);
+      if (needsMdViewRestore) {
+        handleMdViewChange("write");
+      }
+    }
   };
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
