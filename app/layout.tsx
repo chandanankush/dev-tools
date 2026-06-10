@@ -32,27 +32,47 @@ const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t==
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-sans" });
 
 const siteName = "Dev Toolkit";
-const description = "A curated collection of developer utilities built with Next.js 15.";
+const description =
+  "Free browser-based developer tools: JSON formatter, UUID generator, JWT builder, QR code maker, regex tester, Base64 encoder, and more. No install required.";
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mopplications.com";
 
 export const metadata: Metadata = {
   title: {
     default: siteName,
-    // Tool pages use generateMetadata to set their own title; the template
-    // ensures the site name always appears as a suffix.
     template: `%s | ${siteName}`,
   },
   description,
   metadataBase: new URL(baseUrl),
   applicationName: siteName,
   keywords: [
-    "developer tools",
-    "next.js utilities",
+    "developer tools online",
+    "free developer utilities",
+    "browser tools for developers",
+    "json formatter online",
     "json prettifier",
-    "uuid generator",
-    "qr code generator",
-    "jwt generator",
+    "json validator",
+    "uuid generator online free",
+    "guid generator",
+    "jwt decoder online",
+    "jwt builder",
+    "json web token",
+    "qr code generator free",
+    "qr code maker",
+    "regex tester online",
+    "regular expression tester",
+    "base64 encoder decoder online",
+    "base64 converter",
+    "unix timestamp converter",
+    "epoch converter",
+    "url encode decode online",
+    "password generator online",
+    "strong password generator",
+    "online notepad",
+    "browser text editor",
     "url expander",
+    "unshorten url",
+    "json diff",
+    "json compare online",
   ],
   alternates: {
     canonical: baseUrl,
@@ -75,14 +95,7 @@ export const metadata: Metadata = {
     siteName,
     type: "website",
     locale: "en_US",
-    images: [
-      {
-        url: "/og.png",
-        width: 1200,
-        height: 630,
-        alt: siteName,
-      },
-    ],
+    // No images field — app/opengraph-image.tsx provides the og:image automatically.
   },
   twitter: {
     card: "summary_large_image",

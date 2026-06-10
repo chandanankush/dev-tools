@@ -24,6 +24,7 @@ import { notFound } from "next/navigation";
 
 import { ToolShell } from "@/components/ToolShell";
 import { getToolBySlug, tools } from "@/lib/tools.config";
+import { buildToolJsonLd, serializeJsonLd } from "@/lib/seo";
 
 /** Shape of the route segment params for this dynamic route. */
 interface ToolPageProps {
@@ -90,11 +91,20 @@ export default async function ToolPage({ params }: ToolPageProps) {
   // `.default` is the standard ES module default export convention.
   const ToolComponent = (await tool.component()).default;
 
+  const canonicalUrl = `${baseUrl}/tools/${slug}`;
+  const jsonLd = buildToolJsonLd(tool, canonicalUrl);
+
   return (
-    <main className="w-full px-4 py-8 sm:px-6 sm:py-12 lg:px-10 xl:px-16 2xl:px-20">
-      <ToolShell title={tool.title} description={tool.description}>
-        <ToolComponent />
-      </ToolShell>
-    </main>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
+      <main className="w-full px-4 py-8 sm:px-6 sm:py-12 lg:px-10 xl:px-16 2xl:px-20">
+        <ToolShell title={tool.title} description={tool.description}>
+          <ToolComponent />
+        </ToolShell>
+      </main>
+    </>
   );
 }
