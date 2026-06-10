@@ -89,7 +89,7 @@ export default function HomePage() {
                 [
                   { icon: Zap,      label: "Zero install"    },
                   { icon: Globe,    label: "Browser native"  },
-                  { icon: Terminal, label: "Next.js 15 RSC"  },
+                  { icon: Terminal, label: "Next.js 16 RSC"  },
                 ] as const
               ).map(({ icon: Icon, label }) => (
                 <span
@@ -126,7 +126,7 @@ export default function HomePage() {
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">Open source &amp; community driven</p>
                 <p className="text-xs text-muted-foreground">
-                  Built with Next.js 15. Most tools run entirely client-side. The Short URL Expander uses a server-side proxy to follow redirects.
+                  Built with Next.js 16. Most tools run entirely client-side. The Short URL Expander uses a server-side proxy to follow redirects.
                 </p>
               </div>
 

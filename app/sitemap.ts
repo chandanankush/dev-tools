@@ -3,6 +3,8 @@ import { tools } from "@/lib/tools.config";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mopplications.com";
 
+// Fixed date — updating on every redeploy would signal fresh content to crawlers
+// on every CI push, wasting crawl budget. Update manually when content meaningfully changes.
 const LAST_UPDATED = "2026-06-10";
 
 const HIGH_VALUE_SLUGS = new Set([
