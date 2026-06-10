@@ -16,6 +16,7 @@
  */
 import Link from "next/link";
 import { Terminal, Zap, Globe, Star, GitPullRequest, CircleDot } from "lucide-react";
+import { serializeJsonLd } from "@/lib/seo";
 
 const GithubIcon = () => (
   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
@@ -31,9 +32,25 @@ const LinkedinIcon = () => (
 import { ToolGallery } from "@/components/ToolGallery";
 import { toolSummaries } from "@/lib/tools.config";
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mopplications.com";
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Dev Toolkit",
+  url: baseUrl,
+  description:
+    "Free browser-based developer tools: JSON formatter, UUID generator, JWT builder, QR code maker, regex tester, Base64 encoder, and more. No install required.",
+};
+
 export default function HomePage() {
   return (
-    <main className="relative isolate min-h-screen overflow-hidden">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(websiteJsonLd) }}
+      />
+      <main className="relative isolate min-h-screen overflow-hidden">
       {/* Dot-grid background */}
       <div
         aria-hidden
@@ -162,5 +179,6 @@ export default function HomePage() {
         </footer>
       </div>
     </main>
+    </>
   );
 }
