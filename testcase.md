@@ -225,8 +225,34 @@ Test file: `tests/tools/editor-pad.test.tsx`
 - **Upload button triggers file input**
   - Action: click upload button
   - Expected: hidden `<input type="file">` click fired
+- **Character limit — markdown textarea trims oversized paste and shows notice**
+  - Input: string of `MAX_NOTE_CHARS + 50` characters pasted into MD textarea
+  - Expected: textarea value length equals exactly `MAX_NOTE_CHARS`; alert banner visible with text matching `/limit/i`
+- **PDF export spinner shown while generating, cleared on completion**
+  - Setup: `generatePDF` mock holds a pending promise
+  - Action: click **PDF** button
+  - Expected: spinner (`aria-label="Generating PDF"`) present while promise is unresolved
+  - After promise resolves: spinner gone
+- **Rich editor container is scrollable (prerequisite for PDF export cloning)**
+  - Expected: `#pdf-target-rich` element has `overflow-y-auto` class
 
-> Note: All Tiptap packages are mocked in tests — jsdom does not support ProseMirror's DOM requirements. Download behaviour is mode-aware: `.txt` in plain mode, `.html` (full document) in rich mode.
+**Unit tests — `clampToLimits`**
+- Content within limits → returned unchanged, no notice
+- Growth exceeding per-note cap → trimmed to `MAX_NOTE_CHARS`, notice matches `/limit/i`
+- Note already at/above cap → new char dropped, existing content preserved (no data wipe)
+- Growth that would exceed aggregate cap when other notes are near full → blocked at current length, notice shown
+
+**Unit tests — `computePdfRenderPlan`**
+- Short note (1 000px) → `truncated: false`, `scale: 7` (maximum quality)
+- Mid-length note (5 600px) → `truncated: false`, scale between 2–7
+- Oversized note (>16 384 / 2 px) → `truncated: true`, `renderHeight × scale ≤ 16 384`, `scale: 2` (floor)
+
+**Unit tests — `forceLightStyles`**
+- Calling on a subtree sets explicit `color` on root and all descendants
+- `<blockquote>` gets a distinct muted color from regular elements
+- `<code>` / `<pre>` get a light `backgroundColor`
+
+> Note: All Tiptap packages are mocked in tests — jsdom does not support ProseMirror's DOM requirements. `react-to-pdf` / html2canvas is mocked with `vi.mock("react-to-pdf", ...)`. Download behaviour is mode-aware: `.txt` in plain mode, `.html` (full document) in rich mode, `.pdf` via the PDF button in all modes.
 
 ---
 

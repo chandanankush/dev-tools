@@ -16,6 +16,7 @@ This file is read automatically on every session. All rules are mandatory.
 ## Branch workflow — mandatory
 
 - **`main` is protected** — never commit directly to `main`.
+- **`development` is permanent** — never delete it, locally or remotely. It is the long-lived integration branch.
 - **`development` is the default working branch.** All day-to-day work, experiments, and incremental commits go here.
 - At the start of every session, sync `development` with `main`:
   ```bash
