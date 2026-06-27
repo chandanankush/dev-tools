@@ -105,7 +105,7 @@ Quick agent checklist:
 
 - Runner: **Vitest** + `@testing-library/react` + `jsdom`.
 - Setup file: `tests/setup.ts` — mocks `next/image`, runs `cleanup` after each test.
-- 13 test files, 97 tests across all tools (39 for basic-calculator alone).
+- 15 test files, 125 tests across all tools (39 for basic-calculator alone).
 - Heavy DOM packages (ProseMirror/Tiptap, canvas, WebGL) **must be mocked** — jsdom does not support them.
 - Mocks go at the top of the test file using `vi.mock(...)` before any imports of the component.
 - Use `vi.stubGlobal("localStorage", ...)` for localStorage — do not rely on jsdom's built-in implementation for persistence tests.
