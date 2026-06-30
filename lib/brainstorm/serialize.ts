@@ -4,11 +4,9 @@
  * export/import escape hatch — `fromJSON` must never throw into a caller
  * that doesn't expect it, since corrupt localStorage content or a
  * hand-edited imported file are both expected (not exceptional) inputs.
- *
- * `exportPng` is implemented in render.ts (Task 8) once drawScene exists —
- * it needs the render pipeline to rasterize a scene to a canvas. Calling it
- * before then throws "not implemented" rather than being silently wrong.
  */
+import { boundingBox } from "./geometry";
+import { createDrawableCache, drawScene } from "./render";
 import type { Element, Scene } from "./types";
 
 export function toJSON(scene: Scene): string {
@@ -74,6 +72,56 @@ export function fromJSON(text: string): FromJsonResult {
 
 export type ExportPngOptions = { scale: number };
 
-export async function exportPng(): Promise<Blob> {
-  throw new Error("exportPng is implemented in lib/brainstorm/render.ts (Task 8) once drawScene exists.");
+const PNG_EXPORT_PADDING = 20;
+
+/**
+ * Rasterizes the scene to a PNG Blob at `options.scale`x device pixels.
+ *
+ * Uses an in-memory `<canvas>` (not `OffscreenCanvas`) deliberately — Safari
+ * support for OffscreenCanvas.convertToBlob is inconsistent, and this repo
+ * has no SSR use case for it, so a plain detached canvas is the simpler,
+ * more compatible choice.
+ */
+export async function exportPng(scene: Scene, options: ExportPngOptions = { scale: 2 }): Promise<Blob> {
+  const box =
+    scene.elements.length === 0
+      ? { x: 0, y: 0, w: 1, h: 1 }
+      : scene.elements.reduce(
+          (acc, el) => {
+            const b = boundingBox(el);
+            const minX = Math.min(acc.x, b.x);
+            const minY = Math.min(acc.y, b.y);
+            const maxX = Math.max(acc.x + acc.w, b.x + b.w);
+            const maxY = Math.max(acc.y + acc.h, b.y + b.h);
+            return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+          },
+          boundingBox(scene.elements[0])
+        );
+
+  const width = (box.w + PNG_EXPORT_PADDING * 2) * options.scale;
+  const height = (box.h + PNG_EXPORT_PADDING * 2) * options.scale;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.ceil(width));
+  canvas.height = Math.max(1, Math.ceil(height));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context unavailable.");
+
+  // Map the scene's bounding box (minus padding) to the canvas origin, at
+  // `options.scale`x zoom so the export is rendered at higher-than-1x
+  // resolution rather than just upscaled afterward.
+  const viewport = {
+    scrollX: (PNG_EXPORT_PADDING - box.x) * options.scale,
+    scrollY: (PNG_EXPORT_PADDING - box.y) * options.scale,
+    zoom: options.scale,
+  };
+
+  drawScene(ctx, scene, viewport, createDrawableCache());
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Failed to encode PNG."));
+    }, "image/png");
+  });
 }
