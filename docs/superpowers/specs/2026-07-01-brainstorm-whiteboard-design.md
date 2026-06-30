@@ -1,7 +1,7 @@
 # Brainstorm Whiteboard — Design Spec
 
 **Date:** 2026-07-01
-**Status:** Approved (design), pending implementation plan
+**Status:** Approved (design). Implementation plan: `docs/superpowers/plans/2026-07-01-brainstorm-whiteboard.md`
 **Tool slug:** `brainstorm`
 
 ## Summary
