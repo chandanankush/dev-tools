@@ -28,7 +28,15 @@ vi.mock("@tiptap/extension-table", () => ({
 vi.mock("@tiptap/extension-text-style", () => ({ TextStyle: {} }));
 vi.mock("@tiptap/extension-text-align", () => ({ default: { configure: () => ({}) } }));
 
-import EditorPad from "@/components/tools/EditorPad";
+// react-to-pdf must be mocked — html2canvas needs real layout/canvas absent in jsdom.
+const { generatePDFMock } = vi.hoisted(() => ({ generatePDFMock: vi.fn() }));
+vi.mock("react-to-pdf", () => ({
+  __esModule: true,
+  default: generatePDFMock,
+  Resolution: { HIGH: 2 },
+}));
+
+import EditorPad, { MAX_NOTE_CHARS, MAX_TOTAL_CHARS, clampToLimits, forceLightStyles, computePdfRenderPlan } from "@/components/tools/EditorPad";
 
 // ── localStorage stub ──────────────────────────────────────────────────────────
 const localStorageMock = (() => {
@@ -43,6 +51,8 @@ const localStorageMock = (() => {
 
 beforeEach(() => {
   localStorageMock.clear();
+  generatePDFMock.mockReset();
+  generatePDFMock.mockResolvedValue(undefined);
   vi.stubGlobal("localStorage", localStorageMock);
   vi.spyOn(crypto, "randomUUID").mockReturnValue("test-uuid-1234-5678-abcd-ef0123456789" as ReturnType<typeof crypto.randomUUID>);
 });
@@ -115,6 +125,14 @@ describe("EditorPad", () => {
     // In rich mode the textarea disappears and status shows Rich text
     expect(screen.getByText("Rich text")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Start typing…")).not.toBeInTheDocument();
+  });
+
+  it("rich editor container is vertically scrollable for overflowing content", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("Rich"));
+    const richContainer = document.getElementById("pdf-target-rich");
+    expect(richContainer).not.toBeNull();
+    expect(richContainer?.className).toContain("overflow-y-auto");
   });
 
   it("shows Find & Replace panel when search icon is clicked", () => {
@@ -331,6 +349,19 @@ describe("EditorPad — Markdown mode", () => {
     expect(screen.getByTitle("Download as .md")).toBeInTheDocument();
   });
 
+  it("trims pasted markdown that exceeds the per-note limit and warns the user", () => {
+    render(<EditorPad />);
+    fireEvent.click(screen.getByText("MD"));
+    const textarea = screen.getByPlaceholderText("Write markdown here…") as HTMLTextAreaElement;
+    const oversized = "m".repeat(MAX_NOTE_CHARS + 50);
+
+    fireEvent.change(textarea, { target: { value: oversized } });
+
+    expect(textarea.value.length).toBe(MAX_NOTE_CHARS);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toMatch(/limit/i);
+  });
+
   it("uploading a .md file auto-switches note to markdown mode", async () => {
     // FileReader.readAsText is async in jsdom — mock it to fire onload synchronously
     const originalFileReader = global.FileReader;
@@ -353,5 +384,145 @@ describe("EditorPad — Markdown mode", () => {
     expect(screen.getByText("Markdown")).toBeInTheDocument();
 
     vi.stubGlobal("FileReader", originalFileReader);
+  });
+});
+
+describe("forceLightStyles — PDF export gets readable dark text", () => {
+  it("sets explicit dark inline colors on every element so dark-mode text is not white-on-white", () => {
+    const root = document.createElement("div");
+    root.innerHTML = "<h1>title</h1><p>body</p><blockquote>quote</blockquote><code>x</code><a href='#'>link</a>";
+    forceLightStyles(root);
+
+    const h1 = root.querySelector("h1") as HTMLElement;
+    const bq = root.querySelector("blockquote") as HTMLElement;
+    const code = root.querySelector("code") as HTMLElement;
+
+    expect(h1.style.color).not.toBe("");          // forced, not inherited from theme
+    expect(root.style.color).not.toBe("");
+    expect(bq.style.color).not.toBe(h1.style.color); // blockquote visually distinct
+    expect(code.style.backgroundColor).not.toBe("");  // code keeps a light background
+  });
+});
+
+describe("computePdfRenderPlan — fits long notes within canvas limits", () => {
+  it("keeps full quality (max scale) and no truncation for a short note", () => {
+    const plan = computePdfRenderPlan(1000);
+    expect(plan.truncated).toBe(false);
+    expect(plan.renderHeight).toBe(1000);
+    expect(plan.scale).toBe(7); // PDF_SCALE_MAX — short notes stay crisp
+  });
+
+  it("lowers the scale (not blank) for a mid-length note without truncating", () => {
+    const plan = computePdfRenderPlan(5600);
+    expect(plan.truncated).toBe(false);
+    expect(plan.renderHeight).toBe(5600);
+    expect(plan.scale).toBeLessThan(7);
+    expect(plan.scale).toBeGreaterThanOrEqual(2);
+  });
+
+  it("truncates an oversized note to a safe height and never goes below the scale floor", () => {
+    const plan = computePdfRenderPlan(54040); // the RAG-roadmap case
+    expect(plan.truncated).toBe(true);
+    expect(plan.renderHeight).toBeLessThan(54040);
+    expect(plan.renderHeight * plan.scale).toBeLessThanOrEqual(16384); // within canvas limit
+    expect(plan.scale).toBe(2); // PDF_SCALE_FLOOR
+    expect(plan.estimatedPages).toBeGreaterThan(0);
+  });
+});
+
+describe("EditorPad — PDF export spinner", () => {
+  it("shows a spinner while the PDF is generating and clears it when done", async () => {
+    let resolvePdf!: () => void;
+    generatePDFMock.mockReturnValue(new Promise<void>((r) => { resolvePdf = r; }));
+
+    render(<EditorPad />);
+    fireEvent.change(screen.getByPlaceholderText("Start typing…"), { target: { value: "hello" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTitle("Download as PDF"));
+    });
+
+    expect(screen.getByLabelText("Generating PDF")).toBeInTheDocument();
+
+    await act(async () => {
+      resolvePdf();
+    });
+
+    expect(screen.queryByLabelText("Generating PDF")).not.toBeInTheDocument();
+  });
+});
+
+describe("clampToLimits — never destroys existing data", () => {
+  it("returns content unchanged when within limits", () => {
+    expect(clampToLimits("ab", "abc", 0)).toEqual({ value: "abc", notice: null });
+  });
+
+  it("trims growth down to the per-note cap for a normal note", () => {
+    const res = clampToLimits("a".repeat(100), "a".repeat(MAX_NOTE_CHARS + 50), 0);
+    expect(res.value.length).toBe(MAX_NOTE_CHARS);
+    expect(res.notice).toMatch(/limit/i);
+  });
+
+  it("keeps existing chars and blocks growth for a note already over the per-note cap", () => {
+    const current = "x".repeat(MAX_NOTE_CHARS + 100);
+    const res = clampToLimits(current, current + "y", 0);
+    expect(res.value).toBe(current); // existing data preserved, only the new char dropped
+    expect(res.notice).toMatch(/limit/i);
+  });
+
+  it("does NOT wipe a note when other notes already exceed the aggregate cap", () => {
+    const current = "keep this";
+    const res = clampToLimits(current, current + " and more", MAX_TOTAL_CHARS + 1000);
+    expect(res.value).toBe(current); // must not become empty
+    expect(res.notice).toMatch(/storage/i);
+  });
+
+  it("always allows shrinking, even from an over-limit note", () => {
+    const current = "x".repeat(MAX_NOTE_CHARS + 100);
+    const res = clampToLimits(current, "x".repeat(50), MAX_TOTAL_CHARS + 1000);
+    expect(res.value).toBe("x".repeat(50)); // deletion never blocked
+    expect(res.notice).toBeNull();
+  });
+});
+
+describe("EditorPad — character limits", () => {
+  it("trims pasted plain text that exceeds the per-note limit", () => {
+    render(<EditorPad />);
+    const textarea = screen.getByPlaceholderText("Start typing…") as HTMLTextAreaElement;
+    const oversized = "a".repeat(MAX_NOTE_CHARS + 100);
+
+    fireEvent.change(textarea, { target: { value: oversized } });
+
+    expect(textarea.value.length).toBe(MAX_NOTE_CHARS);
+  });
+
+  it("shows a dismissible warning when content is trimmed", () => {
+    render(<EditorPad />);
+    const textarea = screen.getByPlaceholderText("Start typing…") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "a".repeat(MAX_NOTE_CHARS + 1) } });
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toMatch(/limit/i);
+
+    fireEvent.click(screen.getByTitle("Dismiss notice"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not warn for content within the limit", () => {
+    render(<EditorPad />);
+    const textarea = screen.getByPlaceholderText("Start typing…") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "well within bounds" } });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(textarea.value).toBe("well within bounds");
+  });
+
+  it("highlights the character counter once the per-note limit is reached", () => {
+    render(<EditorPad />);
+    const textarea = screen.getByPlaceholderText("Start typing…") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "a".repeat(MAX_NOTE_CHARS + 10) } });
+
+    const counter = screen.getByText(`${MAX_NOTE_CHARS} chars`);
+    expect(counter.className).toContain("text-destructive");
   });
 });

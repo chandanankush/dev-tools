@@ -28,6 +28,7 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 | UI primitives | shadcn/ui (Radix) | Button, Input, Label, Textarea |
 | Icons | lucide-react 1.x | Brand icons (Github, Linkedin) replaced with inline SVGs |
 | Rich text | Tiptap v3 (ProseMirror) | CSP-safe, no eval |
+| PDF export | react-to-pdf 3.x (html2canvas) | Client-side only; adaptive canvas scale, light-mode forcing for dark-theme correctness |
 | Search | Fuse.js v7 | Fuzzy search across tool titles and tags |
 | State | React 19 `useState` / `useReducer` | No global state manager |
 | Persistence | `localStorage` only | No database, no sessions |
@@ -95,7 +96,7 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │
 ├── tests/
 │   ├── setup.ts                 Vitest global setup (next/image mock, cleanup)
-│   └── tools/                   Per-tool regression tests (13 files, 84+ tests)
+│   └── tools/                   Per-tool regression tests (15 files, 125+ tests)
 │
 ├── proxy.ts                 Next.js 16 middleware — CSP nonce generation + security response headers
 ├── next.config.ts                standalone output, poweredByHeader: false, esmExternals
