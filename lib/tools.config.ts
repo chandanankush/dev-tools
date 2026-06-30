@@ -26,6 +26,10 @@ import jwtGeneratorThumbnail from "@/public/thumbs/jwt-generator.png";
 import qrCodeThumbnail from "@/public/thumbs/qr-code.png";
 import urlExpanderThumbnail from "@/public/thumbs/url-expander.png";
 import uuidThumbnail from "@/public/thumbs/uuid.png";
+// Placeholder thumbnail, matching the precedent set by timestamp-converter,
+// password-generator, basic-calculator, and editor-pad below — bespoke
+// artwork can replace this later without touching the registry shape.
+const brainstormThumbnail = uuidThumbnail;
 import type { ComponentType } from "react";
 import type { StaticImageData } from "next/image";
 
@@ -201,6 +205,15 @@ export const tools: ToolMeta[] = [
     thumbnail: uuidThumbnail,
     icon: "notebook-pen",
     component: () => import("@/components/tools/EditorPad"),
+  },
+  {
+    slug: "brainstorm",
+    title: "Brainstorm",
+    description: "An infinite, hand-drawn whiteboard for sketching ideas — pen, shapes, text, and more.",
+    tags: ["whiteboard", "drawing", "sketch", "diagram", "brainstorm", "excalidraw alternative", "online whiteboard free"],
+    thumbnail: brainstormThumbnail,
+    icon: "pencil-ruler",
+    component: () => import("@/components/tools/Brainstorm"),
   },
 ];
 

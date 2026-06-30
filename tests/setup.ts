@@ -28,6 +28,7 @@ class FakeCanvasRenderingContext2D {
   rotate = vi.fn();
   clearRect = vi.fn();
   fillRect = vi.fn();
+  strokeRect = vi.fn();
   beginPath = vi.fn();
   closePath = vi.fn();
   moveTo = vi.fn();

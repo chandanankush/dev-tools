@@ -45,7 +45,9 @@ const DEBOUNCE_MS = 500;
 const RESIZE_HANDLE_SCREEN_PX = 8;
 const DEFAULT_STROKE_COLOR = "#1e1e1e";
 const DEFAULT_STROKE_WIDTH = 2;
-const DEFAULT_FONT_SIZE = 20;
+/** Exported so index.tsx's text-overlay textarea can size its font to match
+ * exactly what commitText below will bake into the committed TextElement. */
+export const TEXT_FONT_SIZE = 20;
 const DEFAULT_VIEWPORT: Viewport = { scrollX: 0, scrollY: 0, zoom: 1 };
 
 function isShapeElement(el: Element): el is ShapeElement {
@@ -295,7 +297,7 @@ export function useBrainstorm() {
       x: point.x,
       y: point.y,
       text,
-      fontSize: DEFAULT_FONT_SIZE,
+      fontSize: TEXT_FONT_SIZE,
       strokeColor,
       strokeWidth: 1,
       seed: randomSeed(),
