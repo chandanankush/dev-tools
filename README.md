@@ -24,7 +24,7 @@ Made by **[Chandan Singh](https://www.linkedin.com/in/chandan-singh-mobileengine
 | **Basic Calculator** | Evaluate arithmetic expressions with full operator and parentheses support, `%` percentage operator (context-aware: `200+10%=220`), GST and Discount quick-action buttons, Weight Price tab (per kg/500g/100g/2kg, rounding, reverse mode), keyboard input, and a localStorage-backed history of the last 50 calculations |
 | **Base64 Tool** | Encode plain text or decode Base64 strings with copy-friendly output |
 | **Compare Tools** | Side-by-side diff for JSON payloads and cURL commands |
-| **Editor Pad** | Browser-based notepad with multiple notes, plain text, rich text (WYSIWYG), and Markdown (write/preview/split) modes, multi-note sidebar, find & replace, font size control, word wrap, and file import/export |
+| **Editor Pad** | Browser-based notepad with multiple notes, plain text, rich text (WYSIWYG), and Markdown (write/preview/split) modes, multi-note sidebar, find & replace, font size control, word wrap, file import/export, and **PDF download** (adaptive resolution, dark-mode safe); per-note cap of 500 k chars and 2 M char aggregate limit with inline warning banner |
 | **JSON Tools** | Prettify, validate, and explore JSON with a collapsible tree viewer |
 | **JWT Generator** | Craft HS256 JWTs with custom payload fields directly in the browser |
 | **Password Generator** | Generate cryptographically random passwords with configurable length, character sets, and custom symbols |
@@ -78,7 +78,7 @@ Password generation uses rejection-sampling (`unbiasedRandom`) to eliminate modu
 
 ## Testing
 
-Vitest 4 + `@testing-library/react`, jsdom environment. 13 test files, 97 tests across all tools.
+Vitest 4 + `@testing-library/react`, jsdom environment. 15 test files, 125 tests across all tools.
 
 ```bash
 pnpm test

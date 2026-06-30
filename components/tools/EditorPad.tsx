@@ -45,6 +45,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import generatePDF, { Resolution } from "react-to-pdf";
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -85,6 +86,7 @@ import {
   Pencil,
   Eye,
   Columns2,
+  Loader2,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -111,6 +113,17 @@ interface Note {
 const STORAGE_KEY = "editorpad-notes";
 const ACTIVE_KEY  = "editorpad-active";
 const DEBOUNCE_MS = 500;
+
+// Per-note cap (~1MB as UTF-16) and aggregate cap across all notes (~4MB).
+// localStorage gives ~5MB per origin shared across every note, and persistNotes
+// silently drops writes on QuotaExceededError — so we trim at the input boundary
+// to keep storage from overflowing and losing data on the next reload.
+export const MAX_NOTE_CHARS  = 500_000;
+export const MAX_TOTAL_CHARS = 2_000_000;
+const CHAR_WARN_THRESHOLD = Math.floor(MAX_NOTE_CHARS * 0.9);
+
+const NOTE_LIMIT_MSG  = `Character limit reached — a note can hold up to ${MAX_NOTE_CHARS.toLocaleString()} characters. The extra text was trimmed.`;
+const TOTAL_LIMIT_MSG = "Storage almost full — you've reached the total limit across all notes. Delete or shorten other notes to add more.";
 
 const FONT_SIZE_OPTIONS = [
   { label: "S",  className: "text-sm"  },
@@ -159,6 +172,88 @@ function persistNotes(notes: Note[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
   } catch {
     // Quota exceeded or private browsing — silently skip
+  }
+}
+
+/**
+ * Trims an incoming value to the per-note and aggregate character caps.
+ *
+ * Data-safety invariant: this only ever caps *growth* — it never returns fewer
+ * characters than the note already holds (`current`), and shrinking is always
+ * allowed. So a note saved before these limits existed (or while other notes
+ * already fill the aggregate budget) keeps all of its data; the worst case is
+ * that it can't grow until the user trims it down. Content is never wiped.
+ *
+ * `othersTotal` is the combined content length of every other note, so the
+ * aggregate cap accounts for what storage is already holding.
+ */
+export function clampToLimits(
+  current: string,
+  next: string,
+  othersTotal: number,
+): { value: string; notice: string | null } {
+  // Shrinking or keeping the same length never increases storage — always allow.
+  if (next.length <= current.length) return { value: next, notice: null };
+
+  if (next.length > MAX_NOTE_CHARS) {
+    const allowed = Math.max(current.length, MAX_NOTE_CHARS);
+    return { value: next.slice(0, allowed), notice: NOTE_LIMIT_MSG };
+  }
+  if (othersTotal + next.length > MAX_TOTAL_CHARS) {
+    const allowed = Math.max(current.length, MAX_TOTAL_CHARS - othersTotal);
+    return { value: next.slice(0, allowed), notice: TOTAL_LIMIT_MSG };
+  }
+  return { value: next, notice: null };
+}
+
+// PDF export scales the off-screen container by `resolution` (html2canvas scale).
+// Browsers cap a canvas at ~16384px per dimension cross-browser; past that the
+// canvas comes back blank. Short notes render at full quality; longer notes get a
+// lower scale to fit, and anything beyond the floor's reach is truncated + flagged.
+const PDF_SCALE_MAX      = 7;     // matches react-to-pdf Resolution.HIGH
+const PDF_SCALE_FLOOR    = 2;     // never blurrier than this (~192 DPI)
+const PDF_MAX_CANVAS_DIM = 16384; // cross-browser safe max canvas dimension
+const PDF_PAGE_CSS_HEIGHT = 1123; // ~A4 height at the 794px export width
+
+/**
+ * Picks a render scale and capture height that keep the export canvas within the
+ * browser's size limit. `truncated` is true when the note is too tall to fit even
+ * at the scale floor, so only the first `renderHeight` px are captured.
+ */
+export function computePdfRenderPlan(fullHeight: number): {
+  scale: number;
+  renderHeight: number;
+  truncated: boolean;
+  estimatedPages: number;
+} {
+  const maxSourceHeight = PDF_MAX_CANVAS_DIM / PDF_SCALE_FLOOR;
+  const renderHeight = Math.min(fullHeight, maxSourceHeight);
+  const truncated = fullHeight > maxSourceHeight;
+  const scale = Math.max(
+    PDF_SCALE_FLOOR,
+    Math.min(PDF_SCALE_MAX, PDF_MAX_CANVAS_DIM / renderHeight),
+  );
+  const estimatedPages = Math.max(1, Math.ceil(renderHeight / PDF_PAGE_CSS_HEIGHT));
+  return { scale, renderHeight, truncated, estimatedPages };
+}
+
+/**
+ * Forces explicit light-theme colors onto an element subtree before PDF export.
+ *
+ * html2canvas does not reliably resolve CSS custom properties (`var(--foreground)`),
+ * so in dark mode the markdown/rich text keeps its near-white color and renders
+ * invisibly on the white PDF background. Setting concrete inline colors on every
+ * node sidesteps var() resolution entirely and guarantees readable dark text.
+ */
+export function forceLightStyles(root: HTMLElement): void {
+  const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
+  for (const el of elements) {
+    const tag = el.tagName;
+    el.style.color = tag === "BLOCKQUOTE" ? "#555555" : tag === "A" ? "#1a56db" : "#111111";
+    el.style.borderColor = "#cccccc";
+    if (tag === "CODE" || tag === "PRE" || tag === "TH") {
+      el.style.backgroundColor = "#f4f4f4";
+    }
   }
 }
 
@@ -471,12 +566,36 @@ export default function EditorPad() {
   const [showSidebar, setShowSidebar]       = useState(false);
   const [mdView, setMdView]                 = useState<"write" | "preview">("write");
   const [mdSplit, setMdSplit]               = useState(false);
+  const [notice, setNotice]                 = useState<string | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const saveTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const activeIdRef    = useRef<string | null>(null);
   activeIdRef.current  = activeId;
+  const notesRef       = useRef<Note[]>([]);
+  notesRef.current     = notes;
+
+  const showNotice = useCallback((msg: string) => {
+    setNotice(msg);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 6000);
+  }, []);
+
+  const dismissNotice = useCallback(() => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setNotice(null);
+  }, []);
+
+  const othersContentTotal = useCallback(
+    (excludeId: string | null) =>
+      notesRef.current
+        .filter((n) => n.id !== excludeId)
+        .reduce((sum, n) => sum + n.content.length, 0),
+    [],
+  );
 
   // ─── Tiptap editor ──────────────────────────────────────────────────────────
 
@@ -498,8 +617,22 @@ export default function EditorPad() {
       attributes: { class: "editorpad-prosemirror focus:outline-none" },
     },
     onUpdate({ editor: e }) {
-      const text = e.getText();
+      const text = e.getText({ blockSeparator: "\n" });
       const html  = e.getHTML();
+      const currentHtml = notesRef.current.find((n) => n.id === activeIdRef.current)?.content ?? "";
+      const { notice: limitNotice } = clampToLimits(
+        currentHtml,
+        html,
+        othersContentTotal(activeIdRef.current),
+      );
+      if (limitNotice) {
+        // Can't cleanly slice contenteditable HTML, so revert the change that
+        // pushed it over the cap. The follow-up onUpdate is back under the
+        // limit, so this does not loop.
+        showNotice(limitNotice);
+        e.commands.undo();
+        return;
+      }
       setRichText(text);
       // Debounced persist
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -517,10 +650,11 @@ export default function EditorPad() {
     },
   });
 
-  // Cancel any pending debounce save when the component unmounts
+  // Cancel any pending timers when the component unmounts
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
     };
   }, []);
 
@@ -555,7 +689,7 @@ export default function EditorPad() {
         const current = editor.getHTML();
         if (current !== note.content) {
           editor.commands.setContent(note.content || "");
-          setRichText(editor.getText());
+          setRichText(editor.getText({ blockSeparator: "\n" }));
         }
       }
       if (note?.mode === "markdown") {
@@ -591,42 +725,34 @@ export default function EditorPad() {
 
   // ─── Auto-save for plain mode ───────────────────────────────────────────────
 
-  const handlePlainChange = useCallback(
+  // Shared by the plain-text and markdown textareas — both store raw text in
+  // `content`, so trimming and persistence are identical.
+  const handleContentChange = useCallback(
     (value: string) => {
-      setNotes((prev) => prev.map((n) => (n.id === activeId ? { ...n, content: value } : n)));
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => {
-        const id = activeIdRef.current;
-        if (!id) return;
-        setNotes((prev) => {
-          const updated = prev.map((n) =>
-            n.id === id ? { ...n, content: value, updatedAt: Date.now() } : n,
-          );
-          persistNotes(updated);
-          return updated;
-        });
-      }, DEBOUNCE_MS);
-    },
-    [activeId],
-  );
+      const activeIdNow = activeIdRef.current;
+      const current = notesRef.current.find((n) => n.id === activeIdNow)?.content ?? "";
+      const { value: clamped, notice: limitNotice } = clampToLimits(
+        current,
+        value,
+        othersContentTotal(activeIdNow),
+      );
+      if (limitNotice) showNotice(limitNotice);
 
-  const handleMarkdownChange = useCallback(
-    (value: string) => {
-      setNotes((prev) => prev.map((n) => (n.id === activeId ? { ...n, content: value } : n)));
+      setNotes((prev) => prev.map((n) => (n.id === activeId ? { ...n, content: clamped } : n)));
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         const id = activeIdRef.current;
         if (!id) return;
         setNotes((prev) => {
           const updated = prev.map((n) =>
-            n.id === id ? { ...n, content: value, updatedAt: Date.now() } : n,
+            n.id === id ? { ...n, content: clamped, updatedAt: Date.now() } : n,
           );
           persistNotes(updated);
           return updated;
         });
       }, DEBOUNCE_MS);
     },
-    [activeId],
+    [activeId, othersContentTotal, showNotice],
   );
 
   const handleMdViewChange = (view: "write" | "preview") => {
@@ -702,25 +828,25 @@ export default function EditorPad() {
     if (from === "plain" && target === "rich") {
       nextContent = activeNote.content
         .split("\n")
-        .map((line) => `<p>${line.trim() === "" ? "<br/>" : line}</p>`)
+        .map((line) => (line.trim() === "" ? "<p></p>" : `<p>${line}</p>`))
         .join("");
-      if (editor) { editor.commands.setContent(nextContent); setRichText(editor.getText()); }
+      if (editor) { editor.commands.setContent(nextContent); setRichText(editor.getText({ blockSeparator: "\n" })); }
     } else if (from === "rich" && target === "plain") {
-      nextContent = editor ? editor.getText() : activeNote.content;
+      nextContent = editor ? editor.getText({ blockSeparator: "\n" }) : activeNote.content;
     } else if (from === "plain" && target === "markdown") {
       // plain text is valid markdown — zero-loss, no transformation
       setMdView("write");
     } else if (from === "markdown" && target === "plain") {
       // raw markdown stays as plain text — keep content as-is
     } else if (from === "rich" && target === "markdown") {
-      nextContent = editor ? editor.getText() : activeNote.content;
+      nextContent = editor ? editor.getText({ blockSeparator: "\n" }) : activeNote.content;
       setMdView("write");
     } else if (from === "markdown" && target === "rich") {
       nextContent = activeNote.content
         .split("\n")
-        .map((line) => `<p>${line.trim() === "" ? "<br/>" : line}</p>`)
+        .map((line) => (line.trim() === "" ? "<p></p>" : `<p>${line}</p>`))
         .join("");
-      if (editor) { editor.commands.setContent(nextContent); setRichText(editor.getText()); }
+      if (editor) { editor.commands.setContent(nextContent); setRichText(editor.getText({ blockSeparator: "\n" })); }
     }
 
     setNotes((prev) => {
@@ -738,7 +864,7 @@ export default function EditorPad() {
 
   const getPlainText = () => {
     if (!activeNote) return "";
-    if (activeNote.mode === "rich") return editor?.getText() ?? "";
+    if (activeNote.mode === "rich") return editor?.getText({ blockSeparator: "\n" }) ?? "";
     return activeNote.content;
   };
 
@@ -800,13 +926,112 @@ export default function EditorPad() {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadPdf = async () => {
+    if (!activeNote || isExportingPdf) return;
+    const safeName = activeNote.title.replace(/[^a-z0-9_\- ]/gi, "_");
+    setIsExportingPdf(true);
+
+    // If markdown is in write-only view, switch to preview so the rendered
+    // HTML exists in the DOM before we clone it, then restore after export.
+    const needsMdViewRestore =
+      activeNote.mode === "markdown" && mdView === "write" && !mdSplit;
+    if (needsMdViewRestore) {
+      handleMdViewChange("preview");
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    }
+
+    // Build an off-screen container that has no height or overflow constraints.
+    // Targeting the live editor elements directly causes html2canvas to capture
+    // only the visible portion (h-full + overflow-y-auto clip the content).
+    const container = document.createElement("div");
+    container.style.cssText =
+      "position:fixed;top:-9999px;left:-9999px;" +
+      "width:794px;box-sizing:border-box;padding:32px;" +
+      "background:#ffffff;color:#111111;" +
+      "font-family:ui-sans-serif,system-ui,sans-serif;" +
+      "font-size:14px;line-height:1.6;";
+
+    if (activeNote.mode === "plain") {
+      // html2canvas does not reliably capture <textarea> content; use <pre>.
+      const pre = document.createElement("pre");
+      pre.style.cssText =
+        "white-space:pre-wrap;word-break:break-word;margin:0;" +
+        "font-family:ui-monospace,monospace;font-size:13px;color:#111111;";
+      pre.textContent = activeNote.content;
+      container.appendChild(pre);
+    } else {
+      const srcId =
+        activeNote.mode === "markdown" ? "pdf-target-md" : "pdf-target-rich";
+      const src = document.getElementById(srcId);
+      if (src) {
+        const clone = src.cloneNode(true) as HTMLElement;
+        clone.style.overflow = "visible";
+        clone.style.height = "auto";
+        clone.style.maxHeight = "none";
+        container.appendChild(clone);
+      }
+    }
+
+    // Bake in explicit dark colors so dark-mode text isn't white-on-white in the PDF.
+    forceLightStyles(container);
+
+    document.body.appendChild(container);
+
+    // Keep the export canvas within the browser's size limit. Tall notes get a
+    // lower scale; notes too tall even at the floor are clipped and flagged.
+    const plan = computePdfRenderPlan(container.scrollHeight);
+    if (plan.truncated) {
+      container.style.height = `${plan.renderHeight}px`;
+      container.style.overflow = "hidden";
+    }
+
+    try {
+      await generatePDF(() => container, {
+        filename: `${safeName}.pdf`,
+        resolution: plan.scale as Resolution,
+        canvas: { mimeType: "image/png" as const },
+        overrides: {
+          canvas: {
+            height: plan.renderHeight,
+            // Backup for any inherited background/border tokens: drop .dark so
+            // theme variables fall back to light. Text color is handled directly
+            // by forceLightStyles above, since html2canvas can't reliably resolve
+            // var(--foreground).
+            onclone: (clonedDoc: Document) => {
+              clonedDoc.documentElement.classList.remove("dark");
+            },
+          },
+        },
+      });
+      if (plan.truncated) {
+        showNotice(
+          `This note is too long for a single PDF — exported the first ~${plan.estimatedPages} pages. Shorten or split the note to include the rest.`,
+        );
+      }
+    } finally {
+      document.body.removeChild(container);
+      if (needsMdViewRestore) {
+        handleMdViewChange("write");
+      }
+      setIsExportingPdf(false);
+    }
+  };
+
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const isMarkdownFile = file.name.endsWith(".md");
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const text = ev.target?.result as string;
+      const raw = ev.target?.result as string;
+      // Floor at the existing content length so an over-budget upload trims the
+      // incoming file rather than wiping the note.
+      const { value: text, notice: limitNotice } = clampToLimits(
+        activeNote?.content ?? "",
+        raw,
+        othersContentTotal(activeId),
+      );
+      if (limitNotice) showNotice(limitNotice);
       if (isMarkdownFile && activeNote?.mode !== "markdown") {
         // .md file uploaded into a non-markdown note — auto-switch to markdown mode
         setMdView("write");
@@ -822,11 +1047,11 @@ export default function EditorPad() {
         return;
       }
       if (activeNote?.mode === "plain" || activeNote?.mode === "markdown") {
-        handlePlainChange(text);
+        handleContentChange(text);
       } else if (editor) {
         const html = text
           .split("\n")
-          .map((line) => `<p>${line.trim() === "" ? "<br/>" : line}</p>`)
+          .map((line) => (line.trim() === "" ? "<p></p>" : `<p>${line}</p>`))
           .join("");
         editor.commands.setContent(html);
       }
@@ -843,7 +1068,7 @@ export default function EditorPad() {
       const newContent = replaceAll
         ? activeNote.content.split(findText).join(replaceText)
         : activeNote.content.replace(findText, replaceText);
-      handlePlainChange(newContent);
+      handleContentChange(newContent);
     } else if (editor) {
       // Structure-safe: replaces only in text nodes, not inside HTML tags
       const newHTML = safeReplaceInHTML(editor.getHTML(), findText, replaceText, replaceAll);
@@ -1083,6 +1308,23 @@ export default function EditorPad() {
             </button>
             <button
               type="button"
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              aria-busy={isExportingPdf}
+              className={cn(
+                "rounded border px-2 text-[10px] font-bold uppercase transition-colors hover:bg-accent h-[26px] flex items-center justify-center",
+                isExportingPdf && "cursor-not-allowed opacity-60",
+              )}
+              title="Download as PDF"
+            >
+              {isExportingPdf ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label="Generating PDF" />
+              ) : (
+                "PDF"
+              )}
+            </button>
+            <button
+              type="button"
               onClick={handleCopy}
               className="rounded border p-1.5 transition-colors hover:bg-accent"
               title="Copy all text"
@@ -1195,6 +1437,24 @@ export default function EditorPad() {
           </div>
         )}
 
+        {/* ── Limit notice ─────────────────────────────────────────────────── */}
+        {notice && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          >
+            <span className="flex-1">{notice}</span>
+            <button
+              type="button"
+              onClick={dismissNotice}
+              className="flex-shrink-0 rounded p-0.5 hover:bg-destructive/20"
+              title="Dismiss notice"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* ── Editor area ──────────────────────────────────────────────────── */}
         {activeNote === null ? (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -1204,8 +1464,9 @@ export default function EditorPad() {
           <div className={cn("flex-1 overflow-hidden", fontSizeClass)}>
             {activeNote.mode === "plain" ? (
               <textarea
+                id="pdf-target-plain"
                 value={activeNote.content}
-                onChange={(e) => handlePlainChange(e.target.value)}
+                onChange={(e) => handleContentChange(e.target.value)}
                 placeholder="Start typing…"
                 className={cn(
                   "h-full w-full resize-none border-none bg-transparent p-4 font-mono focus:outline-none",
@@ -1218,7 +1479,7 @@ export default function EditorPad() {
                 {(mdView === "write" || mdSplit) && (
                   <textarea
                     value={activeNote.content}
-                    onChange={(e) => handleMarkdownChange(e.target.value)}
+                    onChange={(e) => handleContentChange(e.target.value)}
                     placeholder="Write markdown here…"
                     className={cn(
                       "resize-none border-none bg-transparent p-4 font-mono focus:outline-none",
@@ -1229,7 +1490,7 @@ export default function EditorPad() {
                   />
                 )}
                 {(mdView === "preview" || mdSplit) && (
-                  <div className={cn(
+                  <div id="pdf-target-md" className={cn(
                     "editorpad-md-preview overflow-y-auto p-4",
                     mdSplit ? "h-full w-full md:w-1/2" : "h-full w-full",
                   )}>
@@ -1240,7 +1501,7 @@ export default function EditorPad() {
                 )}
               </div>
             ) : (
-              <div className="editorpad-rich h-full p-4">
+              <div id="pdf-target-rich" className="editorpad-rich h-full overflow-y-auto p-4">
                 <EditorContent editor={editor} />
               </div>
             )}
@@ -1250,7 +1511,9 @@ export default function EditorPad() {
         {/* ── Status bar ───────────────────────────────────────────────────── */}
         <div className="flex items-center gap-4 border-t bg-muted/50 px-3 py-1 text-[11px] text-muted-foreground">
           <span>{stats.words} words</span>
-          <span>{stats.chars} chars</span>
+          <span className={cn(stats.chars >= CHAR_WARN_THRESHOLD && "font-medium text-destructive")}>
+            {stats.chars} chars
+          </span>
           <span>{stats.lines} lines</span>
           {activeNote && (
             <span className="ml-auto">
