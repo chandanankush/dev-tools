@@ -134,6 +134,22 @@ Examples (pick what you need, space-separated):
       }
     }
 
+    stage('Prune Old Images') {
+      steps {
+        sh '''
+          set -euo pipefail
+          echo "Pruning old ${IMAGE_NAME} images on build agent (keeping :${BUILD_NUMBER})"
+          OLD_IMAGES=$(docker images "${IMAGE_NAME}" --format '{{.ID}} {{.Repository}}:{{.Tag}}' | grep -v ":${BUILD_NUMBER}$" | awk '{print $1}' | sort -u || true)
+          if [ -n "$OLD_IMAGES" ]; then
+            echo "$OLD_IMAGES" | xargs docker rmi -f || true
+          else
+            echo "No old images to remove."
+          fi
+          docker images "${IMAGE_NAME}"
+        '''
+      }
+    }
+
     stage('Deploy Remote') {
       when {
         expression { params.DEPLOY_REMOTE }
@@ -204,6 +220,14 @@ set -euo pipefail
 docker stop ${remoteApp} || true
 docker rm ${remoteApp} || true
 ${remoteRunCommand}
+
+echo "Pruning old ${env.IMAGE_NAME} images on ${remoteHost} (keeping :${env.BUILD_NUMBER})"
+OLD_IMAGES=\$(docker images ${env.IMAGE_NAME} --format '{{.ID}} {{.Repository}}:{{.Tag}}' | grep -v ":${env.BUILD_NUMBER}\$" | awk '{print \$1}' | sort -u || true)
+if [ -n "\$OLD_IMAGES" ]; then
+  echo "\$OLD_IMAGES" | xargs docker rmi -f || true
+else
+  echo "No old images to remove on ${remoteHost}."
+fi
 REMOTE_SCRIPT
             """.stripIndent()
           }
