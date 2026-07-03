@@ -29,7 +29,17 @@ export default function Brainstorm() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const panRef = useRef<{ lastX: number; lastY: number } | null>(null);
   const spaceHeldRef = useRef(false);
-  const [textCaret, setTextCaret] = useState<{ x: number; y: number } | null>(null);
+  // The active text overlay. `id` is the existing element being edited, or
+  // null when creating a new one; `world` is its top-left in world space.
+  const [textEditor, setTextEditor] = useState<{
+    world: { x: number; y: number };
+    id: string | null;
+    initialText: string;
+    color: string;
+  } | null>(null);
+  // Guards against the trailing blur that fires when the overlay unmounts (on
+  // commit or discard) re-running the commit a second time.
+  const closingTextRef = useRef(false);
   const [importError, setImportError] = useState<string | null>(null);
 
   // Refs mirroring the latest render's state, read by the persistent rAF
@@ -40,6 +50,10 @@ export default function Brainstorm() {
   const draftRef = useRef(brainstorm.draftElement);
   const viewportRef = useRef(brainstorm.viewport);
   const selectedIdsRef = useRef(brainstorm.selectedIds);
+  // Id of the text element currently being edited — hidden from the canvas
+  // render loop below so its overlay textarea isn't drawn on top of a
+  // duplicate of itself.
+  const editingIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(true);
 
   useEffect(() => {
@@ -91,7 +105,9 @@ export default function Brainstorm() {
           const dpr = window.devicePixelRatio || 1;
           const current = sceneRef.current;
           const draft = draftRef.current;
-          const renderScene: Scene = draft ? { ...current, elements: [...current.elements, draft] } : current;
+          const editingId = editingIdRef.current;
+          const visible = editingId ? current.elements.filter((el) => el.id !== editingId) : current.elements;
+          const renderScene: Scene = draft ? { ...current, elements: [...visible, draft] } : { ...current, elements: visible };
           ctx.save();
           ctx.scale(dpr, dpr);
           drawScene(ctx, renderScene, viewportRef.current, cache);
@@ -163,8 +179,17 @@ export default function Brainstorm() {
   });
 
   useEffect(() => {
-    if (textCaret) textareaRef.current?.focus();
-  }, [textCaret]);
+    editingIdRef.current = textEditor?.id ?? null;
+    dirtyRef.current = true;
+    if (!textEditor) return;
+    closingTextRef.current = false;
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.focus();
+      const end = ta.value.length;
+      ta.setSelectionRange(end, end);
+    }
+  }, [textEditor]);
 
   function getCanvasPoint(clientX: number, clientY: number) {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -183,7 +208,19 @@ export default function Brainstorm() {
 
     const screenPoint = getCanvasPoint(e.clientX, e.clientY);
     if (brainstorm.tool === "text") {
-      setTextCaret(screenToWorld(screenPoint, brainstorm.viewport));
+      // A click while editing only finalizes the current text in place — it
+      // never repositions it or opens a new box at the click point.
+      if (textEditor) {
+        commitTextOverlay();
+        return;
+      }
+      const world = screenToWorld(screenPoint, brainstorm.viewport);
+      const existing = brainstorm.textElementAt(world);
+      if (existing) {
+        setTextEditor({ world: { x: existing.x, y: existing.y }, id: existing.id, initialText: existing.text, color: existing.strokeColor });
+      } else {
+        setTextEditor({ world, id: null, initialText: "", color: brainstorm.strokeColor });
+      }
       return;
     }
     brainstorm.handlePointerDown(screenToWorld(screenPoint, brainstorm.viewport));
@@ -222,9 +259,15 @@ export default function Brainstorm() {
   }
 
   function commitTextOverlay() {
-    if (!textCaret) return;
-    brainstorm.commitText(textCaret, textareaRef.current?.value ?? "");
-    setTextCaret(null);
+    if (closingTextRef.current || !textEditor) return;
+    closingTextRef.current = true;
+    brainstorm.commitText(textEditor.world, textareaRef.current?.value ?? "", textEditor.id);
+    setTextEditor(null);
+  }
+
+  function discardTextOverlay() {
+    closingTextRef.current = true;
+    setTextEditor(null);
   }
 
   function canvasCenterScreenPoint() {
@@ -293,23 +336,25 @@ export default function Brainstorm() {
           onPointerUp={handlePointerUp}
         />
 
-        {textCaret && (
+        {textEditor && (
           <textarea
+            key={textEditor.id ?? "new"}
             ref={textareaRef}
             aria-label="Text element editor"
+            defaultValue={textEditor.initialText}
             className="absolute resize-none border border-dashed border-primary bg-transparent p-0 leading-none outline-none"
             style={{
-              left: worldToScreen(textCaret, brainstorm.viewport).x,
-              top: worldToScreen(textCaret, brainstorm.viewport).y,
+              left: worldToScreen(textEditor.world, brainstorm.viewport).x,
+              top: worldToScreen(textEditor.world, brainstorm.viewport).y,
               fontSize: TEXT_FONT_SIZE * brainstorm.viewport.zoom,
-              color: brainstorm.strokeColor,
+              color: textEditor.color,
               minWidth: 60,
             }}
             onBlur={commitTextOverlay}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 e.preventDefault();
-                setTextCaret(null);
+                discardTextOverlay();
               } else if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 commitTextOverlay();

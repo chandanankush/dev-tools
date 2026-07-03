@@ -165,6 +165,44 @@ describe("Brainstorm", () => {
     expect(screen.getByRole("button", { name: /undo/i })).toBeDisabled();
   });
 
+  it("clicking outside an active text overlay finalizes it in place without opening a new box", () => {
+    render(<Brainstorm />);
+    fireEvent.click(screen.getByRole("button", { name: /^text$/i }));
+    const canvas = getCanvas();
+
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40 });
+    fireEvent.change(screen.getByLabelText(/text element editor/i), { target: { value: "First" } });
+
+    // Click on empty canvas elsewhere: commits the current text and closes the
+    // overlay — it must NOT reopen a fresh overlay at the new point.
+    fireEvent.pointerDown(canvas, { clientX: 300, clientY: 300 });
+
+    expect(screen.queryByLabelText(/text element editor/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /undo/i })).toBeEnabled();
+  });
+
+  it("clicking inside an existing text object reopens it for editing instead of stacking a new one", () => {
+    const { container } = render(<Brainstorm />);
+    fireEvent.click(screen.getByRole("button", { name: /^text$/i }));
+    const canvas = getCanvas();
+
+    // Create a text element at (40, 40).
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40 });
+    fireEvent.change(screen.getByLabelText(/text element editor/i), { target: { value: "hello" } });
+    fireEvent.blur(screen.getByLabelText(/text element editor/i));
+    expect(container.querySelector("[data-element-count]")).toHaveAttribute("data-element-count", "1");
+
+    // Click inside its bounds: reopens the same text, does not add a new one.
+    fireEvent.pointerDown(canvas, { clientX: 50, clientY: 48 });
+    const overlay = screen.getByLabelText(/text element editor/i) as HTMLTextAreaElement;
+    expect(overlay.value).toBe("hello");
+
+    // Editing and committing updates in place — still a single element.
+    fireEvent.change(overlay, { target: { value: "hello world" } });
+    fireEvent.blur(overlay);
+    expect(container.querySelector("[data-element-count]")).toHaveAttribute("data-element-count", "1");
+  });
+
   it("suppresses the canvas mousedown default so it cannot steal focus from the text overlay", () => {
     // Regression: the canvas is not focusable, so an un-prevented mousedown
     // moves focus to <body>, blurring the just-opened text overlay and

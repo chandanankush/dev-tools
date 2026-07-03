@@ -289,8 +289,19 @@ export function useBrainstorm() {
     setSelectedIds([]);
   }
 
-  function commitText(point: Point, text: string): void {
-    if (text.trim() === "") return; // empty textarea on blur commits nothing
+  /**
+   * Finalizes a text overlay. `id === null` creates a new element at `point`;
+   * a non-null `id` edits an existing element in place — updating just its
+   * text (keeping position, seed, colour, and font) or removing it if the
+   * user cleared it. Either way it is a single history step.
+   */
+  function commitText(point: Point, text: string, id: string | null = null): void {
+    const trimmed = text.trim();
+    if (id !== null) {
+      setHistory((h) => pushSnapshot(h, trimmed === "" ? removeElement(h.present, id) : updateElement(h.present, id, { text })));
+      return;
+    }
+    if (trimmed === "") return; // empty new text commits nothing
     const element: TextElement = {
       id: crypto.randomUUID(),
       type: "text",
@@ -303,6 +314,17 @@ export function useBrainstorm() {
       seed: randomSeed(),
     };
     setHistory((h) => pushSnapshot(h, addElement(h.present, element)));
+  }
+
+  /** Topmost text element whose bounds contain `point`, or null. Used by the
+   * text tool to reopen an existing text for editing instead of stacking a
+   * new one on top of it. */
+  function textElementAt(point: Point): TextElement | null {
+    for (let i = scene.elements.length - 1; i >= 0; i--) {
+      const el = scene.elements[i];
+      if (el.type === "text" && hitTest(point, el, viewport.zoom)) return el;
+    }
+    return null;
   }
 
   function panBy(delta: { dx: number; dy: number }): void {
@@ -359,6 +381,7 @@ export function useBrainstorm() {
     handlePointerMove,
     handlePointerUp,
     commitText,
+    textElementAt,
     panBy,
     zoomAtCursor,
     exportPngBlob,
