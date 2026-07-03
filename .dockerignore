@@ -1,9 +1,34 @@
+# Version control
 .git
 .gitignore
-.next
+
+# Dependencies and build output (builder stage regenerates these)
 node_modules
+.next
 tmp
+
+# CI artifacts left in the Jenkins workspace by previous runs — prevents old
+# saved images being copied into new images (unbounded image growth)
+*.tar.gz
+*.tar
+
+# Claude Code agent worktrees and memory (can be gigabytes)
+.claude/
+
+# Runtime data and generated files
+data/
+coverage
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# CI config not needed inside the image
 Jenkinsfile
-pnpm-debug.log
-npm-debug.log
-yarn-error.log
