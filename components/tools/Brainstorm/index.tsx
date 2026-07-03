@@ -140,6 +140,28 @@ export default function Brainstorm() {
     };
   });
 
+  // Wheel: Ctrl/Cmd + wheel zooms the board, plain wheel pans. Registered as
+  // a *non-passive* native listener (not React's onWheel, which is always
+  // passive) so preventDefault() actually suppresses the browser's own
+  // Ctrl/Cmd + wheel page zoom — otherwise both the board and the whole page
+  // zoom at once. Re-subscribed every render since brainstorm's handlers
+  // aren't memoized, matching the keyboard effect above.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    function handleWheel(e: WheelEvent) {
+      e.preventDefault();
+      const screenPoint = getCanvasPoint(e.clientX, e.clientY);
+      if (e.ctrlKey || e.metaKey) {
+        brainstorm.zoomAtCursor(screenPoint, -e.deltaY * 0.01);
+      } else {
+        brainstorm.panBy({ dx: -e.deltaX, dy: -e.deltaY });
+      }
+    }
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
+  });
+
   useEffect(() => {
     if (textCaret) textareaRef.current?.focus();
   }, [textCaret]);
@@ -186,20 +208,6 @@ export default function Brainstorm() {
     }
     brainstorm.handlePointerUp();
     canvasRef.current?.releasePointerCapture(e.pointerId);
-  }
-
-  // React attaches wheel listeners as passive by default; calling
-  // preventDefault() here can log a console warning in real browsers but
-  // does not throw — acceptable for v1 rather than hand-rolling a
-  // non-passive addEventListener just to silence it.
-  function handleWheel(e: React.WheelEvent<HTMLCanvasElement>) {
-    e.preventDefault();
-    const screenPoint = getCanvasPoint(e.clientX, e.clientY);
-    if (e.ctrlKey || e.metaKey) {
-      brainstorm.zoomAtCursor(screenPoint, -e.deltaY * 0.01);
-    } else {
-      brainstorm.panBy({ dx: -e.deltaX, dy: -e.deltaY });
-    }
   }
 
   function commitTextOverlay() {
@@ -271,7 +279,6 @@ export default function Brainstorm() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onWheel={handleWheel}
         />
 
         {textCaret && (
