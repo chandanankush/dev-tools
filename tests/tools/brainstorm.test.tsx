@@ -165,6 +165,17 @@ describe("Brainstorm", () => {
     expect(screen.getByRole("button", { name: /undo/i })).toBeDisabled();
   });
 
+  it("suppresses the canvas mousedown default so it cannot steal focus from the text overlay", () => {
+    // Regression: the canvas is not focusable, so an un-prevented mousedown
+    // moves focus to <body>, blurring the just-opened text overlay and
+    // committing it empty before a character can be typed. fireEvent returns
+    // false when the handler called preventDefault().
+    render(<Brainstorm />);
+    const canvas = getCanvas();
+    const notPrevented = fireEvent.mouseDown(canvas, { clientX: 30, clientY: 30 });
+    expect(notPrevented).toBe(false);
+  });
+
   it("Clear requires a second confirming click before wiping the board", () => {
     render(<Brainstorm />);
     fireEvent.click(screen.getByRole("button", { name: /^rectangle$/i }));

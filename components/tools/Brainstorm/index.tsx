@@ -210,6 +210,17 @@ export default function Brainstorm() {
     canvasRef.current?.releasePointerCapture(e.pointerId);
   }
 
+  // The canvas is not focusable, so a mousedown on it moves focus to <body>.
+  // With the text tool that focus move blurs the just-mounted overlay textarea
+  // before a character can be typed, and its empty-blur handler then commits
+  // nothing and unmounts it — so text was impossible to enter. preventDefault
+  // on mousedown suppresses the focus steal (pointer events still fire, so
+  // drawing/panning are unaffected). It must be mousedown, not pointerdown:
+  // preventing pointerdown's default does not stop the mousedown focus action.
+  function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+  }
+
   function commitTextOverlay() {
     if (!textCaret) return;
     brainstorm.commitText(textCaret, textareaRef.current?.value ?? "");
@@ -276,6 +287,7 @@ export default function Brainstorm() {
           role="img"
           aria-label="Brainstorm whiteboard canvas"
           className="block h-full w-full touch-none"
+          onMouseDown={handleMouseDown}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
