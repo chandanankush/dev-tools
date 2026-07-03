@@ -82,6 +82,36 @@ Examples (pick what you need, space-separated):
       }
     }
 
+    stage('Docker Readiness') {
+      steps {
+        sh '''
+          set -euo pipefail
+
+          if docker info >/dev/null 2>&1; then
+            echo "Docker is already running."
+          else
+            echo "Docker daemon not reachable — attempting to start Docker Desktop..."
+            open -a Docker || true
+
+            WAIT=0
+            MAX=90
+            until docker info >/dev/null 2>&1; do
+              if [ "$WAIT" -ge "$MAX" ]; then
+                echo "ERROR: Docker did not start within ${MAX}s. Aborting."
+                exit 1
+              fi
+              echo "  waiting for Docker daemon... (${WAIT}s elapsed)"
+              sleep 5
+              WAIT=$((WAIT + 5))
+            done
+            echo "Docker is now running (${WAIT}s waited)."
+          fi
+
+          docker version --format "Client: {{.Client.Version}}  Server: {{.Server.Version}}"
+        '''
+      }
+    }
+
     stage('Setup Buildx') {
       steps {
         sh '''
