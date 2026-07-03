@@ -21,9 +21,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addElement, duplicateElement, removeElement, updateElement } from "@/lib/brainstorm/scene";
-import { boundingBox, hitTest, normalizeShape, resizeShape } from "@/lib/brainstorm/geometry";
-import type { ResizeHandle } from "@/lib/brainstorm/geometry";
+import { addElement, cloneElements, removeElement, updateElement } from "@/lib/brainstorm/scene";
+import { boundingBox, boxesIntersect, hitTest, normalizeShape, resizeShape } from "@/lib/brainstorm/geometry";
+import type { Box, ResizeHandle } from "@/lib/brainstorm/geometry";
 import { createHistory, pushSnapshot, redo as historyRedo, undo as historyUndo } from "@/lib/brainstorm/history";
 import type { History } from "@/lib/brainstorm/history";
 import { fromJSON, toJSON, exportPng as exportPngFile } from "@/lib/brainstorm/serialize";
@@ -36,13 +36,25 @@ export type ToolName = "select" | "pen" | "rectangle" | "ellipse" | "line" | "ar
 
 type Point = { x: number; y: number };
 
+/** How the current selection should be combined with the incoming ids. Only
+ * "replace" is wired up today; the other modes exist so shift-click additive
+ * selection can be added later without reworking the selection call sites. */
+export type SelectionMode = "replace" | "add" | "remove" | "toggle";
+
 type DragState =
-  | { kind: "move"; id: string; lastPoint: Point }
+  | { kind: "move"; ids: string[]; lastPoint: Point }
   | { kind: "resize"; id: string; handle: ResizeHandle; lastPoint: Point }
-  | { kind: "erase" };
+  | { kind: "erase" }
+  | { kind: "marquee"; start: Point; activated: boolean; rect: Box | null };
 
 const DEBOUNCE_MS = 500;
 const RESIZE_HANDLE_SCREEN_PX = 8;
+/** Pointer travel (in screen px, converted to world by dividing by zoom) below
+ * which a Select-tool drag on empty canvas is treated as a click, not a
+ * marquee — prevents accidental marquee rectangles from tiny mouse jitter. */
+const DRAG_THRESHOLD_PX = 4;
+/** Fixed offset applied to duplicated and pasted elements. */
+const PASTE_OFFSET = 10;
 const DEFAULT_STROKE_COLOR = "#1e1e1e";
 const DEFAULT_STROKE_WIDTH = 2;
 /** Exported so index.tsx's text-overlay textarea can size its font to match
@@ -92,6 +104,7 @@ export function useBrainstorm() {
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [tool, setTool] = useState<ToolName>("select");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [marquee, setMarquee] = useState<Box | null>(null);
   const [strokeColor, setStrokeColor] = useState(DEFAULT_STROKE_COLOR);
   const [fillColor, setFillColor] = useState<string | null>(null);
   const [strokeWidth, setStrokeWidth] = useState(DEFAULT_STROKE_WIDTH);
@@ -99,6 +112,27 @@ export function useBrainstorm() {
   const dragRef = useRef<DragState | null>(null);
   const draftOriginRef = useRef<Point | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // In-memory clipboard for copy/cut/paste — holds deep copies so later edits
+  // or deletion of the originals never mutate what will be pasted.
+  const clipboardRef = useRef<Element[]>([]);
+
+  function select(ids: string[], mode: SelectionMode = "replace"): void {
+    setSelectedIds((prev) => {
+      switch (mode) {
+        case "replace":
+          return ids;
+        case "add":
+          return Array.from(new Set([...prev, ...ids]));
+        case "remove":
+          return prev.filter((id) => !ids.includes(id));
+        case "toggle": {
+          const next = new Set(prev);
+          for (const id of ids) (next.has(id) ? next.delete(id) : next.add(id));
+          return Array.from(next);
+        }
+      }
+    });
+  }
 
   // Client-only localStorage load — done in an effect (not a useState lazy
   // initializer) because this component can be server-rendered, and
@@ -145,11 +179,17 @@ export function useBrainstorm() {
         }
         const hit = [...scene.elements].reverse().find((el) => hitTest(point, el, viewport.zoom));
         if (hit) {
-          setSelectedIds([hit.id]);
-          dragRef.current = { kind: "move", id: hit.id, lastPoint: point };
+          if (selectedIds.includes(hit.id)) {
+            // Clicked within the existing selection — move the whole group.
+            dragRef.current = { kind: "move", ids: selectedIds, lastPoint: point };
+          } else {
+            select([hit.id], "replace");
+            dragRef.current = { kind: "move", ids: [hit.id], lastPoint: point };
+          }
         } else {
-          setSelectedIds([]);
-          dragRef.current = null;
+          // Empty canvas: begin a potential marquee. Selection is left
+          // untouched until pointer-up (avoids flicker on a click-through).
+          dragRef.current = { kind: "marquee", start: point, activated: false, rect: null };
         }
         return;
       }
@@ -213,16 +253,33 @@ export function useBrainstorm() {
       return;
     }
 
+    if (drag.kind === "marquee") {
+      const threshold = DRAG_THRESHOLD_PX / viewport.zoom;
+      if (!drag.activated && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < threshold) return;
+      const rect: Box = {
+        x: Math.min(drag.start.x, point.x),
+        y: Math.min(drag.start.y, point.y),
+        w: Math.abs(point.x - drag.start.x),
+        h: Math.abs(point.y - drag.start.y),
+      };
+      dragRef.current = { ...drag, activated: true, rect };
+      setMarquee(rect);
+      return;
+    }
+
     if (drag.kind === "move") {
       const dx = point.x - drag.lastPoint.x;
       const dy = point.y - drag.lastPoint.y;
       setLiveScene((prev) => {
-        const base = prev ?? history.present;
-        const el = base.elements.find((e) => e.id === drag.id);
-        if (!el) return base;
-        const patch: Partial<Element> =
-          el.type === "freedraw" ? { points: el.points.map(([x, y]) => [x + dx, y + dy] as [number, number]) } : { x: el.x + dx, y: el.y + dy };
-        return updateElement(base, drag.id, patch);
+        let base = prev ?? history.present;
+        for (const id of drag.ids) {
+          const el = base.elements.find((e) => e.id === id);
+          if (!el) continue;
+          const patch: Partial<Element> =
+            el.type === "freedraw" ? { points: el.points.map(([x, y]) => [x + dx, y + dy] as [number, number]) } : { x: el.x + dx, y: el.y + dy };
+          base = updateElement(base, id, patch);
+        }
+        return base;
       });
       dragRef.current = { ...drag, lastPoint: point };
       return;
@@ -254,6 +311,23 @@ export function useBrainstorm() {
       return;
     }
 
+    const drag = dragRef.current;
+    if (drag?.kind === "marquee") {
+      if (drag.activated && drag.rect) {
+        // Canonical rule: an element is selected iff its boundingBox intersects
+        // the marquee rectangle. Applies uniformly to every element type.
+        const rect = drag.rect;
+        const hits = scene.elements.filter((el) => boxesIntersect(boundingBox(el), rect));
+        select(hits.map((el) => el.id), "replace");
+      } else {
+        // A click on empty canvas (below the drag threshold) clears selection.
+        select([], "replace");
+      }
+      setMarquee(null);
+      dragRef.current = null;
+      return;
+    }
+
     if (liveScene) {
       setHistory((h) => pushSnapshot(h, liveScene));
       setLiveScene(null);
@@ -273,9 +347,45 @@ export function useBrainstorm() {
     setSelectedIds([]);
   }
 
+  function selectedElements(): Element[] {
+    return scene.elements.filter((el) => selectedIds.includes(el.id));
+  }
+
+  /** Adds clones (already offset, with fresh ids) as one history step and makes
+   * them the new selection, so the user can immediately drag them away. */
+  function addAndSelect(clones: Element[]): void {
+    if (clones.length === 0) return;
+    setHistory((h) => pushSnapshot(h, clones.reduce((acc, el) => addElement(acc, el), h.present)));
+    select(
+      clones.map((c) => c.id),
+      "replace"
+    );
+  }
+
   function duplicateSelection(): void {
-    if (selectedIds.length !== 1) return;
-    setHistory((h) => pushSnapshot(h, duplicateElement(h.present, selectedIds[0])));
+    addAndSelect(cloneElements(selectedElements(), PASTE_OFFSET, PASTE_OFFSET));
+  }
+
+  function copySelection(): void {
+    const selected = selectedElements();
+    if (selected.length === 0) return;
+    clipboardRef.current = selected.map((el) => structuredClone(el));
+  }
+
+  function cutSelection(): void {
+    const selected = selectedElements();
+    if (selected.length === 0) return;
+    clipboardRef.current = selected.map((el) => structuredClone(el));
+    setHistory((h) => pushSnapshot(h, selected.reduce((acc, el) => removeElement(acc, el.id), h.present)));
+    setSelectedIds([]);
+  }
+
+  function paste(): void {
+    if (clipboardRef.current.length === 0) return;
+    const clones = cloneElements(clipboardRef.current, PASTE_OFFSET, PASTE_OFFSET);
+    addAndSelect(clones);
+    // Cascade repeated pastes instead of stacking exactly on top of each other.
+    clipboardRef.current = clones.map((el) => structuredClone(el));
   }
 
   function deleteSelection(): void {
@@ -364,6 +474,8 @@ export function useBrainstorm() {
     tool,
     setTool,
     selectedIds,
+    select,
+    marquee,
     strokeColor,
     setStrokeColor,
     fillColor,
@@ -376,6 +488,9 @@ export function useBrainstorm() {
     redo,
     duplicateSelection,
     deleteSelection,
+    copySelection,
+    cutSelection,
+    paste,
     clear,
     handlePointerDown,
     handlePointerMove,

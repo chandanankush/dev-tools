@@ -51,3 +51,17 @@ export function duplicateElement(scene: Scene, id: string): Scene {
 
   return addElement(scene, clone);
 }
+
+/**
+ * Deep-copies each element with a fresh id, offset by (dx, dy). Every element
+ * shifts by the same delta, so relative positions within the group are
+ * preserved — this backs both multi-select duplicate and paste. Freedraw point
+ * arrays are copied (not shared) so the clones are fully independent.
+ */
+export function cloneElements(elements: Element[], dx: number, dy: number): Element[] {
+  return elements.map((el) =>
+    el.type === "freedraw"
+      ? { ...el, id: crypto.randomUUID(), points: el.points.map(([x, y]) => [x + dx, y + dy] as [number, number]) }
+      : { ...el, id: crypto.randomUUID(), x: el.x + dx, y: el.y + dy }
+  );
+}

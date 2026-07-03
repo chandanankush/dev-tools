@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addElement, updateElement, removeElement, duplicateElement } from "@/lib/brainstorm/scene";
+import { addElement, updateElement, removeElement, duplicateElement, cloneElements } from "@/lib/brainstorm/scene";
 import { createEmptyScene } from "@/lib/brainstorm/types";
 import type { ShapeElement, FreedrawElement } from "@/lib/brainstorm/types";
 
@@ -88,5 +88,52 @@ describe("duplicateElement", () => {
   it("is a no-op for an unknown id", () => {
     const scene = addElement(createEmptyScene(), rect);
     expect(duplicateElement(scene, "nope")).toEqual(scene);
+  });
+});
+
+describe("cloneElements", () => {
+  const freedraw: FreedrawElement = {
+    id: "fd-1",
+    type: "freedraw",
+    points: [
+      [0, 0],
+      [5, 5],
+    ],
+    strokeColor: "#000",
+    strokeWidth: 1,
+    seed: 2,
+  };
+
+  it("assigns fresh ids and applies the offset to shapes", () => {
+    const [clone] = cloneElements([rect], 10, 10) as ShapeElement[];
+    expect(clone.id).not.toBe(rect.id);
+    expect(clone.x).toBe(10);
+    expect(clone.y).toBe(10);
+    expect(clone.w).toBe(rect.w); // size unchanged
+  });
+
+  it("offsets every freedraw point and copies the points array (no shared reference)", () => {
+    const [clone] = cloneElements([freedraw], 10, 20) as FreedrawElement[];
+    expect(clone.points).toEqual([
+      [10, 20],
+      [15, 25],
+    ]);
+    expect(clone.points).not.toBe(freedraw.points);
+    expect(freedraw.points).toEqual([
+      [0, 0],
+      [5, 5],
+    ]); // original untouched
+  });
+
+  it("preserves relative positions across a group (all shift by the same delta)", () => {
+    const a: ShapeElement = { ...rect, id: "a", x: 0, y: 0 };
+    const b: ShapeElement = { ...rect, id: "b", x: 100, y: 40 };
+    const clones = cloneElements([a, b], 10, 10) as ShapeElement[];
+    expect(clones[1].x - clones[0].x).toBe(100); // same horizontal gap as originals
+    expect(clones[1].y - clones[0].y).toBe(40);
+  });
+
+  it("returns an empty array for empty input", () => {
+    expect(cloneElements([], 10, 10)).toEqual([]);
   });
 });

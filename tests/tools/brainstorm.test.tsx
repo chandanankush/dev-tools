@@ -231,6 +231,97 @@ describe("Brainstorm", () => {
   });
 });
 
+describe("Brainstorm multi-selection", () => {
+  function elementCount(container: HTMLElement): number {
+    return Number(container.querySelector("[data-element-count]")?.getAttribute("data-element-count"));
+  }
+
+  function drawRect(canvas: HTMLCanvasElement, x1: number, y1: number, x2: number, y2: number) {
+    fireEvent.click(screen.getByRole("button", { name: /^rectangle$/i }));
+    fireEvent.pointerDown(canvas, { clientX: x1, clientY: y1 });
+    fireEvent.pointerMove(canvas, { clientX: x2, clientY: y2 });
+    fireEvent.pointerUp(canvas, { clientX: x2, clientY: y2 });
+  }
+
+  function marquee(canvas: HTMLCanvasElement, x1: number, y1: number, x2: number, y2: number) {
+    fireEvent.click(screen.getByRole("button", { name: /^select$/i }));
+    fireEvent.pointerDown(canvas, { clientX: x1, clientY: y1 });
+    fireEvent.pointerMove(canvas, { clientX: x2, clientY: y2 });
+    fireEvent.pointerUp(canvas, { clientX: x2, clientY: y2 });
+  }
+
+  it("marquee selects every intersecting object and Delete removes the whole group", () => {
+    const { container } = render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 60, 60);
+    drawRect(canvas, 120, 120, 160, 160);
+    expect(elementCount(container)).toBe(2);
+
+    marquee(canvas, 5, 5, 200, 200);
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(elementCount(container)).toBe(0);
+  });
+
+  it("a sub-threshold click on empty canvas clears the selection", () => {
+    render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 60, 60);
+
+    fireEvent.click(screen.getByRole("button", { name: /^select$/i }));
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40 }); // select the rect
+    fireEvent.pointerUp(canvas, { clientX: 40, clientY: 40 });
+    expect(screen.getByRole("button", { name: /delete selection/i })).toBeEnabled();
+
+    fireEvent.pointerDown(canvas, { clientX: 300, clientY: 300 }); // click empty, no drag
+    fireEvent.pointerUp(canvas, { clientX: 300, clientY: 300 });
+    expect(screen.getByRole("button", { name: /delete selection/i })).toBeDisabled();
+  });
+
+  it("clicking a single object selects only it", () => {
+    const { container } = render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 60, 60);
+    drawRect(canvas, 120, 120, 160, 160);
+
+    fireEvent.click(screen.getByRole("button", { name: /^select$/i }));
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40 }); // hits only the first rect
+    fireEvent.pointerUp(canvas, { clientX: 40, clientY: 40 });
+
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(elementCount(container)).toBe(1); // only the clicked one was removed
+  });
+
+  it("copy then paste adds an offset, selected duplicate of the group", () => {
+    const { container } = render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 60, 60);
+    drawRect(canvas, 120, 120, 160, 160);
+
+    marquee(canvas, 5, 5, 200, 200);
+    fireEvent.keyDown(window, { key: "c", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+    expect(elementCount(container)).toBe(4);
+
+    // The pasted clones are the current selection — deleting removes only them.
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(elementCount(container)).toBe(2);
+  });
+
+  it("cut removes the selected group and paste brings it back", () => {
+    const { container } = render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 60, 60);
+    drawRect(canvas, 120, 120, 160, 160);
+
+    marquee(canvas, 5, 5, 200, 200);
+    fireEvent.keyDown(window, { key: "x", ctrlKey: true });
+    expect(elementCount(container)).toBe(0);
+
+    fireEvent.keyDown(window, { key: "v", ctrlKey: true });
+    expect(elementCount(container)).toBe(2);
+  });
+});
+
 describe("Brainstorm tool registry", () => {
   it("is registered in lib/tools.config.ts", async () => {
     const { getToolBySlug } = await import("@/lib/tools.config");

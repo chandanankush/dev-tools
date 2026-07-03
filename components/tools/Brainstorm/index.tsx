@@ -9,9 +9,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createDrawableCache, drawScene } from "@/lib/brainstorm/render";
-import { boundingBox } from "@/lib/brainstorm/geometry";
+import { boundingBox, unionBox } from "@/lib/brainstorm/geometry";
+import type { Box } from "@/lib/brainstorm/geometry";
 import { screenToWorld, worldToScreen } from "@/lib/brainstorm/viewport";
-import type { Scene } from "@/lib/brainstorm/types";
+import type { Scene, Viewport } from "@/lib/brainstorm/types";
 import { Toolbar } from "./Toolbar";
 import { useBrainstorm, TEXT_FONT_SIZE } from "./useBrainstorm";
 
@@ -50,6 +51,7 @@ export default function Brainstorm() {
   const draftRef = useRef(brainstorm.draftElement);
   const viewportRef = useRef(brainstorm.viewport);
   const selectedIdsRef = useRef(brainstorm.selectedIds);
+  const marqueeRef = useRef(brainstorm.marquee);
   // Id of the text element currently being edited — hidden from the canvas
   // render loop below so its overlay textarea isn't drawn on top of a
   // duplicate of itself.
@@ -61,8 +63,9 @@ export default function Brainstorm() {
     draftRef.current = brainstorm.draftElement;
     viewportRef.current = brainstorm.viewport;
     selectedIdsRef.current = brainstorm.selectedIds;
+    marqueeRef.current = brainstorm.marquee;
     dirtyRef.current = true;
-  }, [brainstorm.scene, brainstorm.draftElement, brainstorm.viewport, brainstorm.selectedIds]);
+  }, [brainstorm.scene, brainstorm.draftElement, brainstorm.viewport, brainstorm.selectedIds, brainstorm.marquee]);
 
   // Canvas backing-store sizing: kept in step with the container's CSS size
   // at the current devicePixelRatio so strokes stay crisp on high-DPI
@@ -112,6 +115,7 @@ export default function Brainstorm() {
           ctx.scale(dpr, dpr);
           drawScene(ctx, renderScene, viewportRef.current, cache);
           drawSelectionOverlay(ctx, current, selectedIdsRef.current, viewportRef.current);
+          if (marqueeRef.current) drawMarquee(ctx, marqueeRef.current, viewportRef.current);
           ctx.restore();
         }
         dirtyRef.current = false;
@@ -137,6 +141,15 @@ export default function Brainstorm() {
       } else if (isMod && e.key.toLowerCase() === "d") {
         e.preventDefault();
         brainstorm.duplicateSelection();
+      } else if (isMod && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        brainstorm.copySelection();
+      } else if (isMod && e.key.toLowerCase() === "x") {
+        e.preventDefault();
+        brainstorm.cutSelection();
+      } else if (isMod && e.key.toLowerCase() === "v") {
+        e.preventDefault();
+        brainstorm.paste();
       } else if (isMod && e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
         brainstorm.redo();
@@ -370,36 +383,66 @@ export default function Brainstorm() {
 const RESIZE_HANDLE_HALF_SIZE = 4;
 
 /**
- * Selection box + corner handles, drawn with plain Canvas2D calls (not
- * roughjs — selection UI is chrome, not part of the sketchy drawing). Mirrors
- * useBrainstorm's hitTestResizeHandle corner positions for visual
- * consistency, but is a separate, simpler implementation since this only
- * needs draw positions, not hit-tolerance math.
+ * Selection chrome, drawn with plain Canvas2D calls (not roughjs — selection
+ * UI is chrome, not part of the sketchy drawing). Applies the viewport
+ * transform itself so world-space boxes land on top of the rendered scene at
+ * any pan/zoom; line widths and handle sizes are divided by zoom to stay a
+ * constant size on screen.
+ *
+ * Single selection: dashed outline + corner resize handles. Multi-selection:
+ * a dashed outline around every selected element plus one solid group bounding
+ * box, and no handles (move-only).
  */
-function drawSelectionOverlay(ctx: CanvasRenderingContext2D, scene: Scene, selectedIds: string[], viewport: { zoom: number }) {
-  if (selectedIds.length !== 1) return;
-  const el = scene.elements.find((e) => e.id === selectedIds[0]);
-  if (!el) return;
-  const box = boundingBox(el);
-  const handleSize = RESIZE_HANDLE_HALF_SIZE / viewport.zoom;
+function drawSelectionOverlay(ctx: CanvasRenderingContext2D, scene: Scene, selectedIds: string[], viewport: Viewport) {
+  if (selectedIds.length === 0) return;
+  const selected = scene.elements.filter((el) => selectedIds.includes(el.id));
+  if (selected.length === 0) return;
 
   ctx.save();
+  ctx.translate(viewport.scrollX, viewport.scrollY);
+  ctx.scale(viewport.zoom, viewport.zoom);
+  ctx.strokeStyle = "#3b82f6";
+  ctx.lineWidth = 1 / viewport.zoom;
+
+  ctx.setLineDash([4 / viewport.zoom, 4 / viewport.zoom]);
+  for (const el of selected) {
+    const b = boundingBox(el);
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+  }
+  ctx.setLineDash([]);
+
+  if (selected.length === 1) {
+    const box = boundingBox(selected[0]);
+    const handleSize = RESIZE_HANDLE_HALF_SIZE / viewport.zoom;
+    ctx.fillStyle = "#3b82f6";
+    const corners = [
+      { x: box.x, y: box.y },
+      { x: box.x + box.w, y: box.y },
+      { x: box.x, y: box.y + box.h },
+      { x: box.x + box.w, y: box.y + box.h },
+    ];
+    for (const corner of corners) {
+      ctx.fillRect(corner.x - handleSize, corner.y - handleSize, handleSize * 2, handleSize * 2);
+    }
+  } else {
+    const group = unionBox(selected.map(boundingBox));
+    ctx.strokeRect(group.x, group.y, group.w, group.h);
+  }
+  ctx.restore();
+}
+
+/** The live marquee rectangle (world coords), dashed outline over a faint
+ * fill, drawn under the same viewport transform as the selection overlay. */
+function drawMarquee(ctx: CanvasRenderingContext2D, rect: Box, viewport: Viewport) {
+  ctx.save();
+  ctx.translate(viewport.scrollX, viewport.scrollY);
+  ctx.scale(viewport.zoom, viewport.zoom);
+  ctx.fillStyle = "rgba(59, 130, 246, 0.1)";
   ctx.strokeStyle = "#3b82f6";
   ctx.lineWidth = 1 / viewport.zoom;
   ctx.setLineDash([4 / viewport.zoom, 4 / viewport.zoom]);
-  ctx.strokeRect(box.x, box.y, box.w, box.h);
-  ctx.setLineDash([]);
-
-  ctx.fillStyle = "#3b82f6";
-  const corners = [
-    { x: box.x, y: box.y },
-    { x: box.x + box.w, y: box.y },
-    { x: box.x, y: box.y + box.h },
-    { x: box.x + box.w, y: box.y + box.h },
-  ];
-  for (const corner of corners) {
-    ctx.fillRect(corner.x - handleSize, corner.y - handleSize, handleSize * 2, handleSize * 2);
-  }
+  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
   ctx.restore();
 }
 

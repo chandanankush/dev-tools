@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { boundingBox, normalizeShape, distToSegment, hitTest, resizeShape } from "@/lib/brainstorm/geometry";
+import { boundingBox, boxesIntersect, normalizeShape, distToSegment, hitTest, resizeShape, unionBox } from "@/lib/brainstorm/geometry";
 import type { ShapeElement, FreedrawElement, TextElement } from "@/lib/brainstorm/types";
 
 const baseShape = {
@@ -218,5 +218,43 @@ describe("resizeShape", () => {
     // end point (x+w, y+h) must be unchanged at (10, 0)
     expect(result.x + result.w).toBeCloseTo(10);
     expect(result.y + result.h).toBeCloseTo(0);
+  });
+});
+
+describe("boxesIntersect", () => {
+  const a = { x: 0, y: 0, w: 10, h: 10 };
+
+  it("returns true for overlapping boxes", () => {
+    expect(boxesIntersect(a, { x: 5, y: 5, w: 10, h: 10 })).toBe(true);
+  });
+
+  it("returns true when one box fully contains the other", () => {
+    expect(boxesIntersect(a, { x: 2, y: 2, w: 3, h: 3 })).toBe(true);
+  });
+
+  it("returns false for disjoint boxes", () => {
+    expect(boxesIntersect(a, { x: 20, y: 0, w: 5, h: 5 })).toBe(false);
+  });
+
+  it("treats edge-touching (zero-area overlap) as no intersection", () => {
+    expect(boxesIntersect(a, { x: 10, y: 0, w: 5, h: 5 })).toBe(false);
+  });
+});
+
+describe("unionBox", () => {
+  it("returns a zero box for empty input", () => {
+    expect(unionBox([])).toEqual({ x: 0, y: 0, w: 0, h: 0 });
+  });
+
+  it("returns the same box for a single input", () => {
+    expect(unionBox([{ x: 3, y: 4, w: 5, h: 6 }])).toEqual({ x: 3, y: 4, w: 5, h: 6 });
+  });
+
+  it("encloses every input box", () => {
+    const result = unionBox([
+      { x: 0, y: 0, w: 10, h: 10 },
+      { x: 20, y: 5, w: 10, h: 30 },
+    ]);
+    expect(result).toEqual({ x: 0, y: 0, w: 30, h: 35 });
   });
 });

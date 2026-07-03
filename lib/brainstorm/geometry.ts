@@ -9,8 +9,32 @@ import type { Element, ShapeElement } from "./types";
 
 export type ResizeHandle = "nw" | "ne" | "sw" | "se";
 
-type Box = { x: number; y: number; w: number; h: number };
+export type Box = { x: number; y: number; w: number; h: number };
 type Point = { x: number; y: number };
+
+/** Axis-aligned overlap test. Edge-touching (zero-area overlap) counts as no
+ * intersection — this is the canonical marquee rule: an element is selected iff
+ * its boundingBox intersects the marquee rectangle. Both boxes are assumed to
+ * have non-negative w/h (normalize the marquee before calling). */
+export function boxesIntersect(a: Box, b: Box): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/** Smallest box enclosing every input box; a zero box for an empty input. */
+export function unionBox(boxes: Box[]): Box {
+  if (boxes.length === 0) return { x: 0, y: 0, w: 0, h: 0 };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const b of boxes) {
+    minX = Math.min(minX, b.x);
+    minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.w);
+    maxY = Math.max(maxY, b.y + b.h);
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
 
 export function boundingBox(element: Element): Box {
   switch (element.type) {
