@@ -6,6 +6,7 @@
 
 import {
   MousePointer2,
+  Hand,
   Pencil,
   Square,
   Circle,
@@ -29,6 +30,7 @@ import type { ToolName } from "./useBrainstorm";
 
 const TOOLS: { name: ToolName; label: string; Icon: typeof MousePointer2 }[] = [
   { name: "select", label: "Select", Icon: MousePointer2 },
+  { name: "hand", label: "Hand", Icon: Hand },
   { name: "pen", label: "Pen", Icon: Pencil },
   { name: "rectangle", label: "Rectangle", Icon: Square },
   { name: "ellipse", label: "Ellipse", Icon: Circle },

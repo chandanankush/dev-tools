@@ -32,7 +32,7 @@ import { pan as panViewport, zoomAt as zoomViewportAt } from "@/lib/brainstorm/v
 import { createEmptyScene } from "@/lib/brainstorm/types";
 import type { Element, Scene, ShapeElement, TextElement, Viewport } from "@/lib/brainstorm/types";
 
-export type ToolName = "select" | "pen" | "rectangle" | "ellipse" | "line" | "arrow" | "text" | "eraser";
+export type ToolName = "select" | "hand" | "pen" | "rectangle" | "ellipse" | "line" | "arrow" | "text" | "eraser";
 
 type Point = { x: number; y: number };
 

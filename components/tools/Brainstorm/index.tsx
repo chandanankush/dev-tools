@@ -214,7 +214,10 @@ export default function Brainstorm() {
     if (!canvas) return;
     canvas.setPointerCapture(e.pointerId);
 
-    if (e.button === 1 || spaceHeldRef.current) {
+    // Pan the viewport (no selection/draw/marquee) with the Hand tool, the
+    // middle mouse button, or held Space. Returning here is what guarantees the
+    // hand tool never selects, edits, resizes, or moves an object.
+    if (brainstorm.tool === "hand" || e.button === 1 || spaceHeldRef.current) {
       panRef.current = { lastX: e.clientX, lastY: e.clientY };
       return;
     }
@@ -342,7 +345,10 @@ export default function Brainstorm() {
           ref={canvasRef}
           role="img"
           aria-label="Brainstorm whiteboard canvas"
-          className="block h-full w-full touch-none"
+          // Open hand when the Hand tool is idle, closed hand while dragging —
+          // done with CSS (active: pseudo-class) so panning never triggers a
+          // React re-render just to swap the cursor.
+          className={`block h-full w-full touch-none${brainstorm.tool === "hand" ? " cursor-grab active:cursor-grabbing" : ""}`}
           onMouseDown={handleMouseDown}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

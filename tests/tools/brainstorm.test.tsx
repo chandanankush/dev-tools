@@ -322,6 +322,56 @@ describe("Brainstorm multi-selection", () => {
   });
 });
 
+describe("Brainstorm hand tool", () => {
+  function drawRect(canvas: HTMLCanvasElement, x1: number, y1: number, x2: number, y2: number) {
+    fireEvent.click(screen.getByRole("button", { name: /^rectangle$/i }));
+    fireEvent.pointerDown(canvas, { clientX: x1, clientY: y1 });
+    fireEvent.pointerMove(canvas, { clientX: x2, clientY: y2 });
+    fireEvent.pointerUp(canvas, { clientX: x2, clientY: y2 });
+  }
+
+  it("appears in the toolbar and shows a grab cursor when active", () => {
+    render(<Brainstorm />);
+    fireEvent.click(screen.getByRole("button", { name: /^hand$/i }));
+    expect(getCanvas().className).toMatch(/cursor-grab/);
+  });
+
+  it("clicking an object with the hand tool does not select it", () => {
+    render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 80, 80);
+
+    fireEvent.click(screen.getByRole("button", { name: /^hand$/i }));
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40 });
+    fireEvent.pointerUp(canvas, { clientX: 40, clientY: 40 });
+
+    expect(screen.getByRole("button", { name: /delete selection/i })).toBeDisabled();
+  });
+
+  it("panning preserves the existing selection and creates no history", () => {
+    render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 80, 80);
+
+    fireEvent.click(screen.getByRole("button", { name: /^select$/i }));
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40 });
+    fireEvent.pointerUp(canvas, { clientX: 40, clientY: 40 });
+    const deleteBtn = screen.getByRole("button", { name: /delete selection/i });
+    expect(deleteBtn).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^hand$/i }));
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40 });
+    fireEvent.pointerMove(canvas, { clientX: 140, clientY: 120 });
+    fireEvent.pointerUp(canvas, { clientX: 140, clientY: 120 });
+
+    expect(deleteBtn).toBeEnabled(); // selection survived the pan
+
+    // The pan added no history: a single undo removes the draw, leaving nothing.
+    fireEvent.click(screen.getByRole("button", { name: /undo/i }));
+    expect(screen.getByRole("button", { name: /undo/i })).toBeDisabled();
+  });
+});
+
 describe("Brainstorm tool registry", () => {
   it("is registered in lib/tools.config.ts", async () => {
     const { getToolBySlug } = await import("@/lib/tools.config");
