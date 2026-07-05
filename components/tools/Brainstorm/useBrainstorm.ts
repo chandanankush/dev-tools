@@ -29,6 +29,8 @@ import type { History } from "@/lib/brainstorm/history";
 import { fromJSON, toJSON, exportPng as exportPngFile } from "@/lib/brainstorm/serialize";
 import { loadScene, loadSettings, saveScene, saveSettings } from "@/lib/brainstorm/storage";
 import { pan as panViewport, zoomAt as zoomViewportAt } from "@/lib/brainstorm/viewport";
+import { applyPinch } from "@/lib/brainstorm/gesture";
+import type { PinchSample } from "@/lib/brainstorm/gesture";
 import { createEmptyScene, DEFAULT_STROKE_COLOR, DEFAULT_STROKE_WIDTH } from "@/lib/brainstorm/types";
 import type { Element, Scene, ShapeElement, TextElement, ToolName, Viewport } from "@/lib/brainstorm/types";
 
@@ -488,6 +490,24 @@ export function useBrainstorm() {
     setViewport((vp) => zoomViewportAt(vp, cursor, delta));
   }
 
+  /** Applies one two-finger pinch/pan step to the viewport only — element world
+   * coordinates and the selection are never touched by navigation. */
+  function pinchZoomPan(prev: PinchSample, current: PinchSample): void {
+    setViewport((vp) => applyPinch(vp, prev, current));
+  }
+
+  /** Discards any in-progress single-finger interaction (draft draw, move,
+   * resize, erase, or marquee) without committing it to history. Called when a
+   * second finger lands so a pinch never leaves a half-drawn shape or an
+   * uncommitted move behind. Selection is deliberately left as-is. */
+  function cancelInteraction(): void {
+    setDraftElement(null);
+    draftOriginRef.current = null;
+    setLiveScene(null);
+    setMarquee(null);
+    dragRef.current = null;
+  }
+
   function exportPngBlob(): Promise<Blob> {
     return exportPngFile(scene);
   }
@@ -545,6 +565,8 @@ export function useBrainstorm() {
     textElementAt,
     panBy,
     zoomAtCursor,
+    pinchZoomPan,
+    cancelInteraction,
     exportPngBlob,
     exportJsonText,
     importJsonText,

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import Brainstorm from "@/components/tools/Brainstorm";
 
 beforeEach(() => {
@@ -399,6 +399,92 @@ describe("Brainstorm hand tool", () => {
     // The pan added no history: a single undo removes the draw, leaving nothing.
     fireEvent.click(screen.getByRole("button", { name: /undo/i }));
     expect(screen.getByRole("button", { name: /undo/i })).toBeDisabled();
+  });
+});
+
+describe("Brainstorm touch navigation", () => {
+  // jsdom's TouchEvent support is unreliable, so dispatch a plain event with a
+  // minimal `touches` list — enough for the native handlers, which only read
+  // length and clientX/clientY. getBoundingClientRect is 0 in jsdom, so client
+  // coords equal canvas coords.
+  function fireTouch(canvas: HTMLCanvasElement, type: string, points: { x: number; y: number }[]) {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "touches", {
+      value: points.map((p) => ({ clientX: p.x, clientY: p.y })),
+    });
+    // Native listeners update React state outside fireEvent's auto-act wrapper,
+    // so flush the resulting re-render explicitly.
+    act(() => {
+      canvas.dispatchEvent(event);
+    });
+  }
+
+  function drawRect(canvas: HTMLCanvasElement, x1: number, y1: number, x2: number, y2: number) {
+    fireEvent.click(screen.getByRole("button", { name: /^rectangle$/i }));
+    fireEvent.pointerDown(canvas, { clientX: x1, clientY: y1 });
+    fireEvent.pointerMove(canvas, { clientX: x2, clientY: y2 });
+    fireEvent.pointerUp(canvas, { clientX: x2, clientY: y2 });
+  }
+
+  it("a two-finger pinch outward zooms the viewport in", () => {
+    render(<Brainstorm />);
+    const canvas = getCanvas();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+
+    // Fingers 20px apart, then 40px apart about the same midpoint → 2x zoom.
+    fireTouch(canvas, "touchstart", [
+      { x: 40, y: 50 },
+      { x: 60, y: 50 },
+    ]);
+    fireTouch(canvas, "touchmove", [
+      { x: 30, y: 50 },
+      { x: 70, y: 50 },
+    ]);
+
+    expect(screen.getByText("200%")).toBeInTheDocument();
+    fireTouch(canvas, "touchend", []);
+  });
+
+  it("a second finger cancels an in-progress draw without committing it", () => {
+    const { container } = render(<Brainstorm />);
+    const canvas = getCanvas();
+
+    fireEvent.click(screen.getByRole("button", { name: /^rectangle$/i }));
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10 }); // starts a draft rectangle
+    fireEvent.pointerMove(canvas, { clientX: 40, clientY: 40 });
+
+    // Second finger lands: the draft must be discarded, not committed.
+    fireTouch(canvas, "touchstart", [
+      { x: 40, y: 40 },
+      { x: 80, y: 80 },
+    ]);
+    fireEvent.pointerUp(canvas, { clientX: 40, clientY: 40 });
+    fireTouch(canvas, "touchend", []);
+
+    expect(container.querySelector("[data-element-count]")).toHaveAttribute("data-element-count", "0");
+  });
+
+  it("a two-finger gesture leaves the existing selection untouched", () => {
+    render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 60, 60);
+
+    fireEvent.click(screen.getByRole("button", { name: /^select$/i }));
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40 }); // select the rect
+    fireEvent.pointerUp(canvas, { clientX: 40, clientY: 40 });
+    expect(screen.getByRole("button", { name: /delete selection/i })).toBeEnabled();
+
+    fireTouch(canvas, "touchstart", [
+      { x: 100, y: 100 },
+      { x: 140, y: 140 },
+    ]);
+    fireTouch(canvas, "touchmove", [
+      { x: 90, y: 90 },
+      { x: 150, y: 150 },
+    ]);
+    fireTouch(canvas, "touchend", []);
+
+    expect(screen.getByRole("button", { name: /delete selection/i })).toBeEnabled(); // selection preserved
   });
 });
 

@@ -12,6 +12,8 @@ import { createDrawableCache, drawScene } from "@/lib/brainstorm/render";
 import { boundingBox, padBox, unionBox } from "@/lib/brainstorm/geometry";
 import type { Box } from "@/lib/brainstorm/geometry";
 import { screenToWorld, worldToScreen } from "@/lib/brainstorm/viewport";
+import { pinchSample } from "@/lib/brainstorm/gesture";
+import type { PinchSample } from "@/lib/brainstorm/gesture";
 import type { Scene, Viewport } from "@/lib/brainstorm/types";
 import { Toolbar } from "./Toolbar";
 import { useBrainstorm, TEXT_FONT_SIZE, SELECTION_PADDING_SCREEN_PX } from "./useBrainstorm";
@@ -30,6 +32,12 @@ export default function Brainstorm() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const panRef = useRef<{ lastX: number; lastY: number } | null>(null);
   const spaceHeldRef = useRef(false);
+  // Two-finger navigation: `gestureActive` is true from the moment a second
+  // finger lands until every finger lifts, and makes the single-finger pointer
+  // handlers below bail so navigation never selects/draws/moves. `pinchRef`
+  // holds the previous frame's two-finger sample to diff against.
+  const gestureActiveRef = useRef(false);
+  const pinchRef = useRef<PinchSample | null>(null);
   // The active text overlay. `id` is the existing element being edited, or
   // null when creating a new one; `world` is its top-left in world space.
   const [textEditor, setTextEditor] = useState<{
@@ -199,6 +207,82 @@ export default function Brainstorm() {
     return () => canvas.removeEventListener("wheel", handleWheel);
   });
 
+  // Two-finger touch navigation (pinch-to-zoom + pan). Handled through native
+  // touch events — not the pointer pipeline — because they expose every active
+  // touch at once (e.touches), and are registered non-passive so preventDefault
+  // suppresses the browser's own pinch-zoom/scroll. The gesture owns the
+  // viewport only; one-finger interactions stay on the pointer handlers.
+  // Re-subscribed every render (like the wheel/keyboard effects) so the closed-
+  // over brainstorm handlers and textEditor stay current.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    function sampleFrom(touches: TouchList): PinchSample {
+      const a = getCanvasPoint(touches[0].clientX, touches[0].clientY);
+      const b = getCanvasPoint(touches[1].clientX, touches[1].clientY);
+      return pinchSample(a, b);
+    }
+
+    function handleTouchStart(e: TouchEvent) {
+      if (e.touches.length < 2) return;
+      e.preventDefault();
+      if (!gestureActiveRef.current) {
+        gestureActiveRef.current = true;
+        // A second finger cancels whatever the first finger started — no
+        // half-drawn shape, uncommitted move, or stray marquee is left behind.
+        panRef.current = null;
+        brainstorm.cancelInteraction();
+        if (textEditor) discardTextOverlay();
+      }
+      pinchRef.current = sampleFrom(e.touches);
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      if (!gestureActiveRef.current || e.touches.length < 2) return;
+      e.preventDefault();
+      const next = sampleFrom(e.touches);
+      const prev = pinchRef.current;
+      if (prev) brainstorm.pinchZoomPan(prev, next);
+      pinchRef.current = next;
+    }
+
+    function handleTouchEnd(e: TouchEvent) {
+      // Stay in navigation until every finger lifts: dropping from two fingers
+      // to one must not resume drawing with the remaining finger. Re-seed the
+      // sample only once two fingers are down again (handled in touchstart).
+      if (e.touches.length === 0) {
+        gestureActiveRef.current = false;
+        pinchRef.current = null;
+      } else {
+        pinchRef.current = null;
+      }
+    }
+
+    // iOS Safari fires non-standard gesture* events that can zoom the page even
+    // with touch-action:none — swallow them so only the canvas zooms.
+    function preventGesture(e: Event) {
+      e.preventDefault();
+    }
+
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleTouchEnd);
+    canvas.addEventListener("touchcancel", handleTouchEnd);
+    canvas.addEventListener("gesturestart", preventGesture);
+    canvas.addEventListener("gesturechange", preventGesture);
+    canvas.addEventListener("gestureend", preventGesture);
+    return () => {
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchmove", handleTouchMove);
+      canvas.removeEventListener("touchend", handleTouchEnd);
+      canvas.removeEventListener("touchcancel", handleTouchEnd);
+      canvas.removeEventListener("gesturestart", preventGesture);
+      canvas.removeEventListener("gesturechange", preventGesture);
+      canvas.removeEventListener("gestureend", preventGesture);
+    };
+  });
+
   useEffect(() => {
     editingIdRef.current = textEditor?.id ?? null;
     dirtyRef.current = true;
@@ -218,6 +302,7 @@ export default function Brainstorm() {
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (gestureActiveRef.current) return; // two-finger navigation owns the canvas
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.setPointerCapture(e.pointerId);
@@ -251,6 +336,7 @@ export default function Brainstorm() {
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (gestureActiveRef.current) return;
     if (panRef.current) {
       const dx = e.clientX - panRef.current.lastX;
       const dy = e.clientY - panRef.current.lastY;
@@ -263,12 +349,13 @@ export default function Brainstorm() {
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    canvasRef.current?.releasePointerCapture(e.pointerId);
+    if (gestureActiveRef.current) return; // gesture already cancelled the interaction
     if (panRef.current) {
       panRef.current = null;
       return;
     }
     brainstorm.handlePointerUp();
-    canvasRef.current?.releasePointerCapture(e.pointerId);
   }
 
   // The canvas is not focusable, so a mousedown on it moves focus to <body>.
