@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useBrainstorm } from "@/components/tools/Brainstorm/useBrainstorm";
-import { loadScene, saveScene, STORAGE_KEY } from "@/lib/brainstorm/storage";
+import { loadScene, loadSettings, saveScene, saveSettings, STORAGE_KEY } from "@/lib/brainstorm/storage";
 import { addElement } from "@/lib/brainstorm/scene";
 import { createEmptyScene } from "@/lib/brainstorm/types";
 import type { ShapeElement } from "@/lib/brainstorm/types";
@@ -55,6 +55,40 @@ describe("useBrainstorm persistence", () => {
     const { result } = renderHook(() => useBrainstorm());
     await waitFor(() => expect(result.current.scene.elements).toHaveLength(1));
     expect(result.current.scene.elements[0].id).toBe("preexisting");
+  });
+
+  it("persists drawing settings (tool, colours, width) as they change", async () => {
+    const { result } = renderHook(() => useBrainstorm());
+
+    act(() => result.current.setTool("pen"));
+    act(() => result.current.setStrokeColor("#ff0000"));
+    act(() => result.current.setFillColor("#00ff00"));
+    act(() => result.current.setStrokeWidth(6));
+
+    await waitFor(() =>
+      expect(loadSettings()).toEqual({ tool: "pen", strokeColor: "#ff0000", fillColor: "#00ff00", strokeWidth: 6 })
+    );
+  });
+
+  it("restores previously saved settings on mount (survives a refresh)", async () => {
+    saveSettings({ tool: "ellipse", strokeColor: "#123456", fillColor: null, strokeWidth: 9 });
+
+    const { result } = renderHook(() => useBrainstorm());
+
+    await waitFor(() => expect(result.current.tool).toBe("ellipse"));
+    expect(result.current.strokeColor).toBe("#123456");
+    expect(result.current.fillColor).toBeNull();
+    expect(result.current.strokeWidth).toBe(9);
+  });
+
+  it("does not clobber stored settings with defaults on mount", async () => {
+    saveSettings({ tool: "arrow", strokeColor: "#abcdef", fillColor: null, strokeWidth: 4 });
+
+    renderHook(() => useBrainstorm());
+
+    // Give the mount load + save effects time to run; stored value must remain.
+    await waitFor(() => expect(loadSettings().tool).toBe("arrow"));
+    expect(loadSettings().strokeColor).toBe("#abcdef");
   });
 });
 
