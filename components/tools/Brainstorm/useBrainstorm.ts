@@ -22,7 +22,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addElement, cloneElements, removeElement, updateElement } from "@/lib/brainstorm/scene";
-import { boundingBox, boxesIntersect, hitTest, normalizeShape, resizeShape } from "@/lib/brainstorm/geometry";
+import { boundingBox, boxesIntersect, hitTest, normalizeShape, padBox, pointInBox, resizeShape, unionBox } from "@/lib/brainstorm/geometry";
 import type { Box, ResizeHandle } from "@/lib/brainstorm/geometry";
 import { createHistory, pushSnapshot, redo as historyRedo, undo as historyUndo } from "@/lib/brainstorm/history";
 import type { History } from "@/lib/brainstorm/history";
@@ -49,6 +49,11 @@ type DragState =
 
 const DEBOUNCE_MS = 500;
 const RESIZE_HANDLE_SCREEN_PX = 8;
+/** Screen-space padding added on every side of the selection box so its drag
+ * target — and the outline drawn in index.tsx — stay identical and remain
+ * grabbable for thin/zero-area selections (e.g. an axis-aligned line). Divided
+ * by zoom at use sites to convert to world units. */
+export const SELECTION_PADDING_SCREEN_PX = 6;
 /** Pointer travel (in screen px, converted to world by dividing by zoom) below
  * which a Select-tool drag on empty canvas is treated as a click, not a
  * marquee — prevents accidental marquee rectangles from tiny mouse jitter. */
@@ -77,6 +82,12 @@ function randomSeed(): number {
 
 function hitTestResizeHandle(point: Point, el: ShapeElement, zoom: number): ResizeHandle | null {
   const tolerance = RESIZE_HANDLE_SCREEN_PX / zoom;
+  // Rect/ellipse handles sit on the padded box corners (matching the drawn
+  // overlay); line/arrow handles stay on the exact endpoints, which mark real
+  // geometry. Padding only moves where the user grabs — resizeShape is
+  // delta-driven, so the resize math is unaffected.
+  const pad = SELECTION_PADDING_SCREEN_PX / zoom;
+  const box = padBox(boundingBox(el), pad);
   const candidates: { handle: ResizeHandle; point: Point }[] =
     el.type === "line" || el.type === "arrow"
       ? [
@@ -84,10 +95,10 @@ function hitTestResizeHandle(point: Point, el: ShapeElement, zoom: number): Resi
           { handle: "se", point: { x: el.x + el.w, y: el.y + el.h } }, // end point
         ]
       : [
-          { handle: "nw", point: { x: el.x, y: el.y } },
-          { handle: "ne", point: { x: el.x + el.w, y: el.y } },
-          { handle: "sw", point: { x: el.x, y: el.y + el.h } },
-          { handle: "se", point: { x: el.x + el.w, y: el.y + el.h } },
+          { handle: "nw", point: { x: box.x, y: box.y } },
+          { handle: "ne", point: { x: box.x + box.w, y: box.y } },
+          { handle: "sw", point: { x: box.x, y: box.y + box.h } },
+          { handle: "se", point: { x: box.x + box.w, y: box.y + box.h } },
         ];
   for (const candidate of candidates) {
     if (Math.hypot(point.x - candidate.point.x, point.y - candidate.point.y) <= tolerance) return candidate.handle;
@@ -198,6 +209,16 @@ export function useBrainstorm() {
               return;
             }
           }
+        }
+        // Selection-box interior: clicking anywhere inside the (padded) union
+        // box of the current selection drags the whole group, so empty space
+        // between/around selected elements is a valid drag handle. Takes
+        // priority over individual hit-testing and marquee (matches
+        // Excalidraw/Figma/Miro).
+        const selBox = selectionBox();
+        if (selBox && pointInBox(point, padBox(selBox, SELECTION_PADDING_SCREEN_PX / viewport.zoom))) {
+          dragRef.current = { kind: "move", ids: selectedIds, lastPoint: point };
+          return;
         }
         const hit = [...scene.elements].reverse().find((el) => hitTest(point, el, viewport.zoom));
         if (hit) {
@@ -483,10 +504,13 @@ export function useBrainstorm() {
     return { ok: true };
   }
 
-  function selectionBoundingBox() {
-    if (selectedIds.length !== 1) return null;
-    const el = scene.elements.find((e) => e.id === selectedIds[0]);
-    return el ? boundingBox(el) : null;
+  /** Union bounding box of the current selection (any size), or null when
+   * nothing is selected. This is the rectangle the overlay draws and the drag
+   * target for the whole group. */
+  function selectionBox() {
+    const selected = selectedElements();
+    if (selected.length === 0) return null;
+    return unionBox(selected.map(boundingBox));
   }
 
   return {
@@ -524,6 +548,6 @@ export function useBrainstorm() {
     exportPngBlob,
     exportJsonText,
     importJsonText,
-    selectionBoundingBox,
+    selectionBox,
   };
 }

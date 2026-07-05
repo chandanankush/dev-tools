@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { boundingBox, boxesIntersect, normalizeShape, distToSegment, hitTest, resizeShape, unionBox } from "@/lib/brainstorm/geometry";
+import { boundingBox, boxesIntersect, normalizeShape, distToSegment, hitTest, padBox, pointInBox, resizeShape, unionBox } from "@/lib/brainstorm/geometry";
 import type { ShapeElement, FreedrawElement, TextElement } from "@/lib/brainstorm/types";
 
 const baseShape = {
@@ -20,6 +20,31 @@ function line(overrides: Partial<ShapeElement> = {}): ShapeElement {
 function arrow(overrides: Partial<ShapeElement> = {}): ShapeElement {
   return { id: "a1", type: "arrow", x: 0, y: 0, w: 10, h: 0, ...baseShape, ...overrides };
 }
+
+describe("padBox", () => {
+  it("grows a box by pad on every side", () => {
+    expect(padBox({ x: 10, y: 10, w: 20, h: 20 }, 6)).toEqual({ x: 4, y: 4, w: 32, h: 32 });
+  });
+
+  it("makes a zero-area box grabbable", () => {
+    const box = padBox({ x: 50, y: 50, w: 100, h: 0 }, 6);
+    expect(box).toEqual({ x: 44, y: 44, w: 112, h: 12 });
+    expect(pointInBox({ x: 100, y: 47 }, box)).toBe(true); // 3px off the flat line
+  });
+});
+
+describe("pointInBox", () => {
+  const box = { x: 0, y: 0, w: 10, h: 10 };
+  it("is true for interior and edge points", () => {
+    expect(pointInBox({ x: 5, y: 5 }, box)).toBe(true);
+    expect(pointInBox({ x: 0, y: 0 }, box)).toBe(true);
+    expect(pointInBox({ x: 10, y: 10 }, box)).toBe(true);
+  });
+  it("is false outside the box", () => {
+    expect(pointInBox({ x: -1, y: 5 }, box)).toBe(false);
+    expect(pointInBox({ x: 5, y: 11 }, box)).toBe(false);
+  });
+});
 
 describe("boundingBox", () => {
   it("rectangle: normalizes a positive w/h box", () => {

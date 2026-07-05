@@ -9,12 +9,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createDrawableCache, drawScene } from "@/lib/brainstorm/render";
-import { boundingBox, unionBox } from "@/lib/brainstorm/geometry";
+import { boundingBox, padBox, unionBox } from "@/lib/brainstorm/geometry";
 import type { Box } from "@/lib/brainstorm/geometry";
 import { screenToWorld, worldToScreen } from "@/lib/brainstorm/viewport";
 import type { Scene, Viewport } from "@/lib/brainstorm/types";
 import { Toolbar } from "./Toolbar";
-import { useBrainstorm, TEXT_FONT_SIZE } from "./useBrainstorm";
+import { useBrainstorm, TEXT_FONT_SIZE, SELECTION_PADDING_SCREEN_PX } from "./useBrainstorm";
 
 const ZOOM_STEP = 0.1;
 
@@ -420,28 +420,44 @@ function drawSelectionOverlay(ctx: CanvasRenderingContext2D, scene: Scene, selec
   ctx.strokeStyle = "#3b82f6";
   ctx.lineWidth = 1 / viewport.zoom;
 
-  ctx.setLineDash([4 / viewport.zoom, 4 / viewport.zoom]);
-  for (const el of selected) {
-    const b = boundingBox(el);
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
-  }
-  ctx.setLineDash([]);
+  // Padding keeps the drawn box identical to the drag hit-region in
+  // useBrainstorm, so what the user sees is exactly what they can grab.
+  const pad = SELECTION_PADDING_SCREEN_PX / viewport.zoom;
 
   if (selected.length === 1) {
-    const box = boundingBox(selected[0]);
+    const el = selected[0];
+    const box = padBox(boundingBox(el), pad);
+    ctx.setLineDash([4 / viewport.zoom, 4 / viewport.zoom]);
+    ctx.strokeRect(box.x, box.y, box.w, box.h);
+    ctx.setLineDash([]);
+
+    // Line/arrow handles mark the exact endpoints; rect/ellipse handles sit on
+    // the padded box corners (matching hitTestResizeHandle).
     const handleSize = RESIZE_HANDLE_HALF_SIZE / viewport.zoom;
     ctx.fillStyle = "#3b82f6";
-    const corners = [
-      { x: box.x, y: box.y },
-      { x: box.x + box.w, y: box.y },
-      { x: box.x, y: box.y + box.h },
-      { x: box.x + box.w, y: box.y + box.h },
-    ];
+    const corners =
+      el.type === "line" || el.type === "arrow"
+        ? [
+            { x: el.x, y: el.y },
+            { x: el.x + el.w, y: el.y + el.h },
+          ]
+        : [
+            { x: box.x, y: box.y },
+            { x: box.x + box.w, y: box.y },
+            { x: box.x, y: box.y + box.h },
+            { x: box.x + box.w, y: box.y + box.h },
+          ];
     for (const corner of corners) {
       ctx.fillRect(corner.x - handleSize, corner.y - handleSize, handleSize * 2, handleSize * 2);
     }
   } else {
-    const group = unionBox(selected.map(boundingBox));
+    ctx.setLineDash([4 / viewport.zoom, 4 / viewport.zoom]);
+    for (const el of selected) {
+      const b = boundingBox(el);
+      ctx.strokeRect(b.x, b.y, b.w, b.h);
+    }
+    ctx.setLineDash([]);
+    const group = padBox(unionBox(selected.map(boundingBox)), pad);
     ctx.strokeRect(group.x, group.y, group.w, group.h);
   }
   ctx.restore();

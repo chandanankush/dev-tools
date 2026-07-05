@@ -271,6 +271,27 @@ describe("Brainstorm multi-selection", () => {
     expect(elementCount(container)).toBe(0);
   });
 
+  it("drags the whole group from empty space inside the selection box, as one undo step", () => {
+    const { container } = render(<Brainstorm />);
+    const canvas = getCanvas();
+    drawRect(canvas, 20, 20, 60, 60);
+    drawRect(canvas, 120, 120, 160, 160);
+
+    marquee(canvas, 5, 5, 200, 200); // selects both; group box spans (20,20)-(160,160)
+
+    // (90,90) is empty canvas between the two rects but inside the group box:
+    // pre-fix this started a marquee and moved nothing; now it drags the group.
+    fireEvent.pointerDown(canvas, { clientX: 90, clientY: 90 });
+    fireEvent.pointerMove(canvas, { clientX: 110, clientY: 110 });
+    fireEvent.pointerUp(canvas, { clientX: 110, clientY: 110 });
+
+    // The move is its own history entry: undoing it restores the two rects
+    // rather than deleting one. Without the drag being recorded, a single undo
+    // would drop back to one rectangle.
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(elementCount(container)).toBe(2);
+  });
+
   it("a sub-threshold click on empty canvas clears the selection", () => {
     render(<Brainstorm />);
     const canvas = getCanvas();

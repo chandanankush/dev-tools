@@ -175,10 +175,10 @@ describe("useBrainstorm drawing and history", () => {
     act(() => result.current.handlePointerDown({ x: 5, y: 5 })); // selects it
     act(() => result.current.handlePointerUp());
 
-    // The se handle sits at world (10, 10) given zoom 1 (default), well
-    // within the resize-handle hit tolerance.
-    act(() => result.current.handlePointerDown({ x: 10, y: 10 }));
-    act(() => result.current.handlePointerMove({ x: 20, y: 20 }));
+    // The se handle sits on the padded selection-box corner: the element
+    // corner (10, 10) plus SELECTION_PADDING_SCREEN_PX (6) at zoom 1 = (16, 16).
+    act(() => result.current.handlePointerDown({ x: 16, y: 16 }));
+    act(() => result.current.handlePointerMove({ x: 26, y: 26 }));
     act(() => result.current.handlePointerUp());
 
     const resized = result.current.scene.elements[0] as ShapeElement;
