@@ -70,6 +70,12 @@ export type ToolMeta = ToolSearchable & {
    */
   fullBleed?: boolean;
   /**
+   * Opt out of dark mode: the tool page renders in a forced light-token island
+   * (the `.force-light` class) regardless of the site theme. Used by tools like
+   * Brainstorm whose canvas surface has no dark-mode treatment.
+   */
+  forceLight?: boolean;
+  /**
    * Thunk that returns the dynamic import for the tool's React component.
    * Expressed as a function (rather than a direct `import()` call) so the
    * import is deferred until the tool page is actually mounted, enabling
@@ -221,6 +227,7 @@ export const tools: ToolMeta[] = [
     thumbnail: brainstormThumbnail,
     icon: "pencil-ruler",
     fullBleed: true,
+    forceLight: true,
     component: () => import("@/components/tools/Brainstorm"),
   },
 ];

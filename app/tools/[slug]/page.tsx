@@ -100,7 +100,14 @@ export default async function ToolPage({ params }: ToolPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
-      <main className={tool.fullBleed ? "w-full" : "w-full px-4 py-8 sm:px-6 sm:py-12 lg:px-10 xl:px-16 2xl:px-20"}>
+      <main
+        className={[
+          tool.fullBleed ? "w-full" : "w-full px-4 py-8 sm:px-6 sm:py-12 lg:px-10 xl:px-16 2xl:px-20",
+          tool.forceLight && "force-light",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <ToolShell title={tool.title} description={tool.description} fullBleed={tool.fullBleed}>
           <ToolComponent />
         </ToolShell>

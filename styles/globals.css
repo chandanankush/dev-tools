@@ -50,7 +50,12 @@
   to { height: 0px; }
 }
 
-:root {
+/* `.force-light` re-declares the exact light-mode token values on any subtree,
+   so a page opted into it renders light even while <html> carries `.dark`
+   (custom properties inherit, and the nearer element wins). Used by tools that
+   opt out of dark mode via ToolMeta.forceLight. */
+:root,
+.force-light {
   --background: 0 0% 100%;
   --foreground: 224 71% 4%;
   --card: 0 0% 100%;
@@ -77,6 +82,15 @@
   --radius: 0.75rem;
 
   color-scheme: light;
+}
+
+/* Paint the light surface + text colour on the island element itself. The
+   token overrides above only re-flip utilities that read a var (e.g.
+   `bg-card`); text that merely inherits `color` from <body> — which stays on
+   the site theme — would otherwise keep the dark-theme colour. Mirrors the
+   `body` rule so the island is a self-contained light surface. */
+.force-light {
+  @apply bg-background text-foreground;
 }
 
 .dark {
