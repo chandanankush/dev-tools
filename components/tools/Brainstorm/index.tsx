@@ -77,6 +77,14 @@ export default function Brainstorm() {
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
+    // touch-action:none keeps single-finger drags drawing instead of scrolling
+    // the page on touch devices. It must be set imperatively here, not via a
+    // Tailwind class (`touch-none` is dropped by the class extractor when glued
+    // to a template-literal interpolation) nor a React inline `style` prop
+    // (silently dropped from this canvas during hydration — the node is also
+    // mutated imperatively below). Set on the live node it sticks across renders.
+    canvas.style.touchAction = "none";
+
     function resize() {
       const rect = container!.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -349,11 +357,8 @@ export default function Brainstorm() {
           // done with CSS (active: pseudo-class) so panning never triggers a
           // React re-render just to swap the cursor.
           className={`block h-full w-full${brainstorm.tool === "hand" ? " cursor-grab active:cursor-grabbing" : ""}`}
-          // touch-action must be set inline, not via Tailwind's `touch-none`
-          // class: the extractor drops that class when it is concatenated
-          // directly onto a template-literal interpolation, leaving
-          // touch-action:auto so touch drags scroll the page instead of drawing.
-          style={{ touchAction: "none" }}
+          // touch-action:none is applied imperatively in the sizing effect above
+          // (a React inline style prop does not survive hydration on this node).
           onMouseDown={handleMouseDown}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
