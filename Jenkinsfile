@@ -115,8 +115,31 @@ Examples (pick what you need, space-separated):
     stage('Setup Buildx') {
       steps {
         sh '''
-          docker buildx create --name "${BUILDX_INSTANCE}" --bootstrap --use || docker buildx use "${BUILDX_INSTANCE}"
-          docker buildx inspect --bootstrap
+          set -uo pipefail
+
+          # A cold-started Docker Desktop answers `docker info` before its
+          # storage subsystem is fully initialised, so buildx's buildkit
+          # container fails to boot with "RWLayer ... is unexpectedly nil".
+          # Tear down any stale builder left by a previous run and retry the
+          # bootstrap with backoff until the daemon has settled.
+          bootstrap_buildx() {
+            docker buildx rm "${BUILDX_INSTANCE}" 2>/dev/null || true
+            docker rm -f "buildx_buildkit_${BUILDX_INSTANCE}0" 2>/dev/null || true
+            docker buildx create --name "${BUILDX_INSTANCE}" --bootstrap --use \\
+              && docker buildx inspect --bootstrap
+          }
+
+          ATTEMPT=1
+          MAX_ATTEMPTS=6
+          until bootstrap_buildx; do
+            if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+              echo "ERROR: buildx failed to bootstrap after ${MAX_ATTEMPTS} attempts."
+              exit 1
+            fi
+            echo "buildx bootstrap failed (attempt ${ATTEMPT}/${MAX_ATTEMPTS}) — Docker likely still warming up; retrying in 10s..."
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep 10
+          done
         '''
       }
     }
