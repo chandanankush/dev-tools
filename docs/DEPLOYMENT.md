@@ -2,6 +2,8 @@
 
 This project ships as a **Docker container** built by a **Jenkins CI/CD pipeline** and deployed to a remote host (default: `pios.local` — a Raspberry Pi or similar ARM device).
 
+A separate GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR to `main` — type check (`tsc --noEmit`), lint, test, and build — as a merge gate. It does not build or deploy the Docker image; that remains Jenkins' responsibility.
+
 ---
 
 ## Container architecture
@@ -11,7 +13,7 @@ Dockerfile (multi-stage)
 ├── base      node:26-alpine + corepack (installed via npm — required for Node 25+)
 ├── deps      pnpm install --frozen-lockfile
 ├── builder   next build  (standalone output)
-└── runner    apk upgrade + npm@latest → non-root USER appuser → node server.js (port 3000)
+└── runner    apk upgrade + npm@latest → non-root USER appuser → node server.js (port 3050)
 ```
 
 `next.config.ts` sets `output: "standalone"` — the runner image ships only what is needed (`server.js`, `.next/standalone`, `.next/static`, `public/`). No `node_modules` in the final image.
@@ -46,32 +48,34 @@ File: `Jenkinsfile`
 | `DEPLOY_REMOTE` | boolean | `true` | SSH + deploy to remote Docker host after build |
 | `REMOTE_HOST` | string | `pios.local` | Hostname or IP of target machine |
 | `REMOTE_APP_NAME` | string | `dev-tools` | Docker container name on remote |
-| `REMOTE_PORT_MAPPING` | string | `5000:3000` | `<host>:<container>` port mapping |
+| `REMOTE_PORT_MAPPING` | string | `5000:3050` | `<host>:<container>` port mapping |
 | `REMOTE_ENV_VARS` | string | `-e NEXT_PUBLIC_SITE_URL=...` | Extra env flags for `docker run` |
 | `REMOTE_RUN_ARGS` | string | — | Additional `docker run` flags |
-| `SSH_CREDENTIALS_ID` | string | `remote-ssh-key` | Jenkins credential ID (SSH Username with private key) |
+| `SSH_CREDENTIALS_ID` | string | `pi-ssh-key` | Jenkins credential ID (SSH Username with private key) |
 
-> `IMAGE_NAME` is a fixed pipeline environment variable (`dev-tools`) — not a parameter. There is no registry push step; the image is streamed directly to the remote host over SSH.
+> `IMAGE_NAME` is a fixed pipeline environment variable (`dev-tools`) — not a parameter. There is no registry push step; the image is streamed directly to the remote host over SSH. Image tags use the Jenkins `BUILD_NUMBER` (e.g. `dev-tools:42`), not `:latest`.
 
 ### Pipeline stages
 
 ```mermaid
 flowchart LR
     A[Checkout] --> B[Repo Info]
-    B --> C[Setup Buildx]
-    C --> D[Build Image\nlinux/arm64/v8\n--load]
-    D --> E{DEPLOY_REMOTE?}
-    E -- Yes --> F[docker save | gzip\n| ssh | gunzip | docker load]
-    F --> G[SSH: docker stop + rm\ndocker run --restart unless-stopped]
-    E -- No --> H[Done]
-    G --> H
+    B --> C[Docker Readiness]
+    C --> D[Setup Buildx]
+    D --> E[Build Image\nlinux/arm64/v8\n--load]
+    E --> F[Prune Old Images\non build agent]
+    F --> G{DEPLOY_REMOTE?}
+    G -- Yes --> H[docker save | gzip\n| ssh | gunzip | docker load]
+    H --> I[SSH: docker stop + rm\ndocker run --restart unless-stopped\n+ prune old images on remote]
+    G -- No --> J[Done]
+    I --> J
 ```
 
 ### Credentials required in Jenkins
 
 | ID | Type | Used by |
 |---|---|---|
-| `remote-ssh-key` (configurable via `SSH_CREDENTIALS_ID`) | SSH Username with private key | Deploy Remote stage — Jenkins extracts both SSH username and key file path automatically |
+| `pi-ssh-key` (configurable via `SSH_CREDENTIALS_ID`) | SSH Username with private key | Deploy Remote stage — Jenkins extracts both SSH username and key file path automatically |
 
 > No registry credentials needed. The image is saved locally after build and piped directly to the remote host:
 > `docker save "$IMAGE_TAG" | gzip | ssh -i "$DEPLOY_KEY" "$SSH_TARGET" 'gunzip | docker load'`
@@ -116,7 +120,7 @@ docker buildx build \
 docker run -d \
   --name dev-tools \
   --restart unless-stopped \
-  -p 5000:3000 \
+  -p 5000:3050 \
   -e NEXT_PUBLIC_SITE_URL=https://mopplications.com \
   dev-tools:latest
 ```
@@ -138,8 +142,8 @@ flowchart TD
     subgraph Remote["Raspberry Pi (pios.local)"]
         G[docker stop dev-tools]
         G --> H[docker rm dev-tools]
-        H --> I[docker run\n--restart unless-stopped\n-p 5000:3000]
-        I --> J[Next.js standalone\nNode 26 server.js\nport 3000]
+        H --> I[docker run\n--restart unless-stopped\n-p 5000:3050]
+        I --> J[Next.js standalone\nNode 26 server.js\nport 3050]
     end
 
     subgraph Internet
@@ -154,7 +158,7 @@ flowchart TD
 
 ## Reverse proxy (recommended)
 
-The container exposes port `3000` internally (mapped to `5000` by default). Place a reverse proxy in front for HTTPS termination.
+The container exposes port `3050` internally (mapped to `5000` by default). Place a reverse proxy in front for HTTPS termination.
 
 ### Caddy example
 
@@ -208,7 +212,7 @@ curl -sf http://localhost:5000 | head -c 200
 ## Updating the deployment
 
 1. Push changes to `main`.
-2. Trigger Jenkins pipeline (`PUSH_IMAGE=true`, `DEPLOY_REMOTE=true`).
+2. Trigger Jenkins pipeline (`DEPLOY_REMOTE=true`).
 3. Jenkins rebuilds the image, SSHes to the remote host, stops the old container, starts the new one.
 4. Zero downtime between stop and start is ~1–2 seconds (Node cold start on arm64).
 
