@@ -122,12 +122,16 @@ RUN chown -R appuser:appgroup /app
 USER appuser          # ← mandatory, never remove
 ```
 
-**The runner stage MUST have security upgrades:**
+**The runner stage MUST patch the OS and ship no package manager:**
 ```dockerfile
-RUN apk upgrade --no-cache && npm install -g npm@latest
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules/npm \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 ```
 
-Why: a container running as root gives an attacker full host access if the app is compromised. This was a HIGH severity finding in the security assessment.
+Why: the standalone server runs on `node server.js` alone — npm/pnpm/corepack are build-time only. Shipping npm into the runtime adds its transitive CVEs (e.g. npm's bundled `undici`, a HIGH `js/uncontrolled-resource-consumption` finding) for zero runtime benefit, and "keep npm current" just inherits whatever npm's bundle carries. Removing the package managers eliminates that entire class of CVE at the source. The runner is `FROM node:26-alpine` (not `FROM base`) so corepack is never installed there. `apk upgrade` still patches OS packages.
+
+Why non-root: a container running as root gives an attacker full host access if the app is compromised. This was a HIGH severity finding in the security assessment.
 
 ---
 
@@ -222,7 +226,7 @@ docker scout cves dev-tools:local
 
 For unfixable base-image CVEs (e.g. Alpine busybox with no upstream patch yet): document them as accepted risk and re-check after each rebuild. The `apk upgrade --no-cache` in the runner stage will automatically apply fixes when Alpine ships them.
 
-For fixable CVEs in npm-bundled packages: `npm install -g npm@latest` in the runner stage keeps npm's internal dependencies current.
+The runner ships no package manager (see rule 4), so npm/pnpm/corepack transitive CVEs never reach the runtime image. Do not reintroduce `npm install -g npm@latest` to "fix" a bundled-package CVE — that reintroduces the whole npm dependency tree; the correct posture is to keep those tools out of the runtime entirely.
 
 ---
 
