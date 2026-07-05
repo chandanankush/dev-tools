@@ -80,7 +80,7 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │   │   ├── UrlExpander.tsx
 │   │   ├── UuidGenerator.tsx
 │   │   ├── WeightPriceCalculator.tsx  # Embedded as tab in BasicCalculator
-│   │   └── Brainstorm.tsx      # Hand-drawn whiteboard (fullBleed tool), roughjs rendering
+│   │   └── Brainstorm.tsx      # Hand-drawn whiteboard (fullBleed tool), roughjs rendering, two-finger touch nav
 │   └── ui/                      shadcn/ui primitives
 │       ├── button.tsx
 │       ├── input.tsx
@@ -100,7 +100,7 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 ├── tests/
 │   ├── setup.ts                 Vitest global setup (next/image mock, cleanup)
 │   ├── tools/                   Per-tool regression tests (15 files)
-│   ├── brainstorm/              Brainstorm engine unit tests (geometry, scene, history, viewport, serialize, storage — 7 files)
+│   ├── brainstorm/              Brainstorm engine unit tests (geometry, scene, history, viewport, serialize, storage, render, gesture — 8 files)
 │   └── seo/                     Sitemap and metadata tests (2 files)
 │
 ├── proxy.ts                 Next.js 16 middleware — CSP nonce generation + security response headers
