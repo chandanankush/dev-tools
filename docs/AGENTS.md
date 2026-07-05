@@ -42,6 +42,7 @@ All tools are registered in a single file: `lib/tools.config.ts`.
 - The `toolSummaries` export is sorted A–Z by title via `localeCompare` — do not break this.
 - Never remove `getToolBySlug` — it is used by the dynamic route.
 - **Embedded sub-tools** (e.g. `WeightPriceCalculator` inside `BasicCalculator`) are NOT registered in `tools.config.ts`. They are imported directly by the host component and rendered as tabs. Do not add them to the registry.
+- **Full-bleed tools**: `fullBleed: true` on a `ToolMeta` entry (used by `brainstorm`) drops the tool page's vertical padding and lets `ToolShell` fill `100dvh` with a compact header, for canvas tools that need maximum drawing space.
 
 ### Routing
 - Tool pages live at `/tools/[slug]` — the slug must match `tools.config.ts`.
@@ -105,7 +106,7 @@ Quick agent checklist:
 
 - Runner: **Vitest** + `@testing-library/react` + `jsdom`.
 - Setup file: `tests/setup.ts` — mocks `next/image`, runs `cleanup` after each test.
-- 15 test files, 125 tests across all tools (39 for basic-calculator alone).
+- 24 test files total: 15 in `tests/tools/` (component-level, 39 for basic-calculator alone, 46 for editor-pad), 7 in `tests/brainstorm/` (canvas engine unit tests — geometry, scene, history, viewport, serialize, storage, render), and 2 in `tests/seo/` (sitemap/metadata).
 - Heavy DOM packages (ProseMirror/Tiptap, canvas, WebGL) **must be mocked** — jsdom does not support them.
 - Mocks go at the top of the test file using `vi.mock(...)` before any imports of the component.
 - Use `vi.stubGlobal("localStorage", ...)` for localStorage — do not rely on jsdom's built-in implementation for persistence tests.
@@ -261,6 +262,12 @@ When upgrading a major version with a large lockfile diff (React, Next.js, etc.)
 5. Open a PR from the clean branch.
 
 Rebase on large lockfile changes produces unresolvable conflicts.
+
+---
+
+### 12a. CI gate — GitHub Actions
+
+`.github/workflows/ci.yml` runs on every push/PR to `main`: type check (`tsc --noEmit`), lint, test, build, in that order. It is a merge gate, separate from the Jenkins Docker build/deploy pipeline (see `docs/DEPLOYMENT.md`).
 
 ---
 

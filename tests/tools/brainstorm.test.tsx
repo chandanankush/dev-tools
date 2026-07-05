@@ -17,6 +17,15 @@ describe("Brainstorm", () => {
     expect(screen.getByRole("group", { name: /tools/i })).toBeInTheDocument();
   });
 
+  it("sets touch-action:none on the canvas so touch gestures draw instead of scrolling the page", () => {
+    // Regression: the Tailwind `touch-none` class was silently dropped from the
+    // emitted CSS (extractor lost it when glued to a template-literal `${...}`),
+    // leaving touch-action:auto — so single-finger drawing scrolled the page on
+    // mobile. The property must be set inline so it can never be extraction-dependent.
+    render(<Brainstorm />);
+    expect(getCanvas().style.touchAction).toBe("none");
+  });
+
   it("selecting the rectangle tool then dragging on the canvas commits a shape, and undo removes it", () => {
     render(<Brainstorm />);
     fireEvent.click(screen.getByRole("button", { name: /^rectangle$/i }));

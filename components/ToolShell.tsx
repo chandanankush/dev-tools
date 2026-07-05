@@ -26,6 +26,10 @@ interface ToolShellProps {
   /** Optional extra Tailwind classes on the outermost container — useful when a
    *  tool page needs more vertical breathing room than the default `space-y-8`. */
   className?: string;
+  /** When set, the shell fills the viewport (100dvh) with a compact,
+   *  mobile-collapsed header and a flex-grow card, so canvas tools like
+   *  Brainstorm can take almost the whole screen. See ToolMeta.fullBleed. */
+  fullBleed?: boolean;
 }
 
 /**
@@ -37,10 +41,15 @@ interface ToolShellProps {
  * The content card uses `bg-card` rather than `bg-background` so it remains
  * visually distinct from the page background in both light and dark themes.
  */
-export function ToolShell({ title, description, children, className }: ToolShellProps) {
+export function ToolShell({ title, description, children, className, fullBleed }: ToolShellProps) {
   return (
-    <div className={cn("space-y-8", className)}>
-      <div className="space-y-4">
+    <div
+      className={cn(
+        fullBleed ? "flex h-[100dvh] flex-col gap-3 p-2 sm:gap-4 sm:p-4" : "space-y-8",
+        className
+      )}
+    >
+      <div className={cn("space-y-4", fullBleed && "shrink-0 space-y-2")}>
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
@@ -49,13 +58,14 @@ export function ToolShell({ title, description, children, className }: ToolShell
           Back to tools
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
+          <h1 className={cn("font-bold tracking-tight", fullBleed ? "text-xl sm:text-4xl" : "text-3xl sm:text-4xl")}>{title}</h1>
           {/* max-w-2xl prevents the description from becoming an uncomfortably
-              long measure on wide viewports */}
-          <p className="mt-2 max-w-2xl text-muted-foreground">{description}</p>
+              long measure on wide viewports. In full-bleed mode it is hidden on
+              mobile to reclaim vertical space for the tool. */}
+          <p className={cn("mt-2 max-w-2xl text-muted-foreground", fullBleed && "hidden sm:block")}>{description}</p>
         </div>
       </div>
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
+      <div className={cn("rounded-xl border bg-card shadow-sm", fullBleed ? "flex min-h-0 flex-1 flex-col p-2 sm:p-6" : "p-6")}>
         {children}
       </div>
     </div>

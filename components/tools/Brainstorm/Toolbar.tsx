@@ -115,7 +115,10 @@ export function Toolbar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2" data-element-count={elementCount}>
+    <div
+      className="flex flex-nowrap items-center gap-2 overflow-x-auto rounded-lg border bg-card p-2 [&>*]:shrink-0 md:flex-wrap md:overflow-x-visible"
+      data-element-count={elementCount}
+    >
       <div className="flex items-center gap-1" role="group" aria-label="Tools">
         {TOOLS.map(({ name, label, Icon }) => (
           <Button

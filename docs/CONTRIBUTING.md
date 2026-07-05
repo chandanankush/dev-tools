@@ -133,25 +133,35 @@ All three must be clean before opening a PR.
 
 ## Pull request checklist
 
-- [ ] `pnpm test` passes (all 97 tests green)
+- [ ] `pnpm test` passes (all tests green)
 - [ ] `pnpm build` succeeds with no type errors
+- [ ] `pnpm lint` is clean
 - [ ] New tool has a test file with ≥ 3 meaningful test cases
 - [ ] `README.md`, `testcase.md`, and `docs/ARCHITECTURE.md` updated
 - [ ] No `eval`, `new Function`, or CSP-breaking patterns introduced
 - [ ] No unnecessary dependencies added
+
+CI (`.github/workflows/ci.yml`) enforces type-check, lint, test, and build on every push/PR to `main` — a red check blocks merge.
 
 ---
 
 ## Branch strategy
 
 ```
-main          ← always deployable, protected
-feat/<name>   ← new tool or feature
-fix/<name>    ← bug fix
+main          ← always deployable, protected — never commit directly
+development   ← permanent integration branch — default working branch
+feat/<name>   ← new tool or feature, cut from development
+fix/<name>    ← bug fix, cut from development
 chore/<name>  ← dependency bumps, config, docs
 ```
 
-PRs target `main`. Squash-merge preferred to keep history clean.
+Sync `development` with `main` at the start of a session:
+
+```bash
+git checkout development && git pull origin main
+```
+
+Day-to-day work happens on `development` (or a feature branch cut from it, merged back before the PR). When a coherent, shippable goal is complete, open a PR from `development` → `main`. Squash-merge preferred to keep history clean. Never raise a PR to `main` with failing tests or a broken build.
 
 ---
 

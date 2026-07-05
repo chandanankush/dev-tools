@@ -30,6 +30,8 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 | Rich text | Tiptap v3 (ProseMirror) | CSP-safe, no eval |
 | PDF export | react-to-pdf 3.x (html2canvas) | Client-side only; adaptive canvas scale, light-mode forcing for dark-theme correctness |
 | Search | Fuse.js v7 | Fuzzy search across tool titles and tags |
+| Whiteboard rendering | roughjs 4.x | Hand-drawn canvas rendering for Brainstorm |
+| Markdown | react-markdown + remark-gfm | Markdown preview mode in Editor Pad |
 | State | React 19 `useState` / `useReducer` | No global state manager |
 | Persistence | `localStorage` only | No database, no sessions |
 | Package manager | pnpm | Strict lockfile (`--frozen-lockfile` in CI) |
@@ -77,7 +79,8 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │   │   ├── UrlEncoderDecoder.tsx
 │   │   ├── UrlExpander.tsx
 │   │   ├── UuidGenerator.tsx
-│   │   └── WeightPriceCalculator.tsx  # Embedded as tab in BasicCalculator
+│   │   ├── WeightPriceCalculator.tsx  # Embedded as tab in BasicCalculator
+│   │   └── Brainstorm.tsx      # Hand-drawn whiteboard (fullBleed tool), roughjs rendering
 │   └── ui/                      shadcn/ui primitives
 │       ├── button.tsx
 │       ├── input.tsx
@@ -96,11 +99,13 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │
 ├── tests/
 │   ├── setup.ts                 Vitest global setup (next/image mock, cleanup)
-│   └── tools/                   Per-tool regression tests (15 files, 125+ tests)
+│   ├── tools/                   Per-tool regression tests (15 files)
+│   ├── brainstorm/              Brainstorm engine unit tests (geometry, scene, history, viewport, serialize, storage — 7 files)
+│   └── seo/                     Sitemap and metadata tests (2 files)
 │
 ├── proxy.ts                 Next.js 16 middleware — CSP nonce generation + security response headers
 ├── next.config.ts                standalone output, poweredByHeader: false, esmExternals
-├── Dockerfile                    Multi-stage build (deps → builder → runner, non-root USER)
+├── Dockerfile                    Multi-stage build (deps → builder → runner, non-root USER, port 3050)
 └── Jenkinsfile                   CI/CD pipeline (build → SSH deploy to Raspberry Pi, no registry)
 ```
 
@@ -108,12 +113,13 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 
 ## Tool registry
 
-All tools are registered once in `lib/tools.config.ts`. Adding a tool requires zero changes to routing, sitemap, or search.
+All tools are registered once in `lib/tools.config.ts`. Adding a tool requires zero changes to routing, sitemap, or search. Optional `fullBleed: true` (used by `brainstorm`) drops the tool page's vertical padding and lets ToolShell fill `100dvh` with a compact header — for canvas-style tools that need maximum drawing space.
 
 | Slug | Component | Server-side? |
 |---|---|---|
 | `base64-tool` | Base64Utility | No |
 | `basic-calculator` | BasicCalculator | No |
+| `brainstorm` | Brainstorm — infinite hand-drawn whiteboard (roughjs), full-bleed layout | No |
 | `compare-tools` | CompareTools — JSON: side-by-side visual diff with red/green row highlighting; cURL: structured field table | No |
 | `editor-pad` | EditorPad | No |
 | `json-tools` | JsonTools | No |
@@ -214,18 +220,34 @@ All handled in `proxy.ts` (Next.js 16 middleware filename) which runs on **every
 
 **Production CSP (strict):**
 ```
+default-src 'self'
 script-src 'nonce-<random>' 'strict-dynamic'
 style-src 'self' 'nonce-<random>'
+img-src 'self' data:
+font-src 'self'
 connect-src 'self'
+frame-src 'none'
+object-src 'none'
+base-uri 'self'
+form-action 'self'
 upgrade-insecure-requests
 ```
 
 **Dev CSP (relaxed for HMR):**
 ```
+default-src 'self'
 script-src 'self' 'nonce-<random>' 'strict-dynamic' 'unsafe-eval'
 style-src 'self' 'nonce-<random>'
+img-src 'self' data:
+font-src 'self'
 connect-src 'self' ws: wss:
+frame-src 'none'
+object-src 'none'
+base-uri 'self'
+form-action 'self'
 ```
+
+`img-src 'self' data:` allows base64 data URIs used by the QR Code Generator preview without permitting arbitrary external images.
 
 ### API security — `/api/expand-url`
 

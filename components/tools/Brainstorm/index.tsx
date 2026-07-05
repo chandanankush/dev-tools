@@ -307,7 +307,7 @@ export default function Brainstorm() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <Toolbar
         tool={brainstorm.tool}
         setTool={brainstorm.setTool}
@@ -335,12 +335,12 @@ export default function Brainstorm() {
       />
 
       {importError && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="shrink-0 text-sm text-destructive">
           {importError}
         </p>
       )}
 
-      <div ref={containerRef} className="relative h-[600px] w-full overflow-hidden rounded-lg border bg-background">
+      <div ref={containerRef} className="relative min-h-0 w-full flex-1 overflow-hidden overscroll-none rounded-lg border bg-background">
         <canvas
           ref={canvasRef}
           role="img"
@@ -348,7 +348,12 @@ export default function Brainstorm() {
           // Open hand when the Hand tool is idle, closed hand while dragging —
           // done with CSS (active: pseudo-class) so panning never triggers a
           // React re-render just to swap the cursor.
-          className={`block h-full w-full touch-none${brainstorm.tool === "hand" ? " cursor-grab active:cursor-grabbing" : ""}`}
+          className={`block h-full w-full${brainstorm.tool === "hand" ? " cursor-grab active:cursor-grabbing" : ""}`}
+          // touch-action must be set inline, not via Tailwind's `touch-none`
+          // class: the extractor drops that class when it is concatenated
+          // directly onto a template-literal interpolation, leaving
+          // touch-action:auto so touch drags scroll the page instead of drawing.
+          style={{ touchAction: "none" }}
           onMouseDown={handleMouseDown}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

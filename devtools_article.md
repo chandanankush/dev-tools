@@ -4,7 +4,7 @@ Every engineer has a set of tools they reach for constantly. JSON prettifier, Ba
 
 So I built my own: **mopplications.com**
 
-It's a clean, fast, single-site toolkit with 13 utilities I actually use — no accounts, no tracking, no noise.
+It's a clean, fast, single-site toolkit with 14 utilities I actually use — no accounts, no tracking, no noise.
 
 ---
 
@@ -22,15 +22,17 @@ It's a clean, fast, single-site toolkit with 13 utilities I actually use — no 
 
 **Editor Pad** — a browser-based notepad with multiple notes, WYSIWYG mode, find & replace, and file import/export. Useful when you want a scratch pad that isn't Google Docs.
 
+**Brainstorm** — an infinite, hand-drawn whiteboard for sketching ideas: pen, shapes, text, and more. Runs full-bleed so the canvas gets the whole viewport.
+
 The rest: Base64 encode/decode, Timestamp Converter, URL Encoder/Decoder, UUID Generator, Password Generator, QR Code Generator, Short URL Expander.
 
 ---
 
 ## How it's built
 
-Next.js 15 App Router, TypeScript, Tailwind CSS, shadcn/ui. Fuzzy search with Fuse.js. Adding a new tool is one config entry in `lib/tools.config.ts` — the grid, search, and tag filtering wire up automatically.
+Next.js 16 App Router, TypeScript, Tailwind CSS, shadcn/ui. Fuzzy search with Fuse.js. Adding a new tool is one config entry in `lib/tools.config.ts` — the grid, search, and tag filtering wire up automatically.
 
-Ships as a Docker container via a multi-stage build, deployed through a Jenkins pipeline. Nonce-based Content Security Policy enforced on every request. 84+ Vitest tests covering every tool.
+Ships as a Docker container via a multi-stage build, deployed through a Jenkins pipeline. Nonce-based Content Security Policy enforced on every request. Vitest test suite (24 test files) covering every tool.
 
 I used agentic coding workflows throughout — explicit agent governance files, defined boundaries, mandatory build and test verification before changes land. It made solo development feel like working with a disciplined team rather than just vibing and hoping things work.
 

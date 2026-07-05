@@ -63,6 +63,13 @@ export type ToolMeta = ToolSearchable & {
   /** Lucide icon name rendered on the card badge; optional cosmetic only. */
   icon?: string;
   /**
+   * Opt-in full-viewport layout: the tool page drops its vertical padding and
+   * ToolShell fills 100dvh with a compact (mobile-collapsed) header, letting
+   * the tool grow to almost the whole screen. Used by canvas tools like
+   * Brainstorm where a fixed-height card wastes drawing space.
+   */
+  fullBleed?: boolean;
+  /**
    * Thunk that returns the dynamic import for the tool's React component.
    * Expressed as a function (rather than a direct `import()` call) so the
    * import is deferred until the tool page is actually mounted, enabling
@@ -213,6 +220,7 @@ export const tools: ToolMeta[] = [
     tags: ["whiteboard", "drawing", "sketch", "diagram", "brainstorm", "excalidraw alternative", "online whiteboard free"],
     thumbnail: brainstormThumbnail,
     icon: "pencil-ruler",
+    fullBleed: true,
     component: () => import("@/components/tools/Brainstorm"),
   },
 ];

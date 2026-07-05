@@ -163,6 +163,23 @@ Test file: `tests/tools/url-expander.test.tsx`
 
 ---
 
+### 6a) URL Encoder / Decoder
+
+Test file: `tests/tools/url-encoder-decoder.test.tsx`
+
+- **Encodes plain text to a percent-encoded string**
+  - Input: `hello world & more=stuff`
+  - Action: click **Encode**
+  - Expected: output is `hello%20world%20%26%20more%3Dstuff`
+- **Decodes a percent-encoded string to plain text**
+  - Action: switch to Decode mode, input the encoded string, click **Decode**
+  - Expected: output is `hello world & more=stuff`
+- **Shows an error for an invalid percent-encoded string**
+  - Input: `%GG`
+  - Expected: error message matching `/invalid percent-encoded/i`
+
+---
+
 ### 7) UUID Generator
 
 Test file: `tests/tools/uuid-generator.test.tsx`
@@ -271,6 +288,7 @@ Run these after major changes (middleware/CSP, dependency bumps, UI refactors):
    - `/tools/jwt-generator`
    - `/tools/short-url-expander`
    - `/tools/basic-calculator` (both Calculator and Weight Price tabs)
+   - `/tools/brainstorm` (full-bleed layout — verify canvas fills viewport, touch drawing works)
 
 If a test fails, update this file when behavior has intentionally changed.
 
@@ -362,3 +380,43 @@ No dedicated test file — covered via visual and manual testing.
 - Decimal prices (e.g. ₹99.99/kg) handled correctly
 - Empty inputs show placeholder, no result card rendered
 - Clear button resets price, weight, and total fields
+
+---
+
+### 11) Brainstorm
+
+Test files: `tests/tools/brainstorm.test.tsx`, `tests/tools/brainstorm-persistence.test.tsx`, plus engine unit tests under `tests/brainstorm/` (`geometry.test.ts`, `scene.test.ts`, `history.test.ts`, `viewport.test.ts`, `serialize.test.ts`, `storage.test.ts`, `render.test.ts`).
+
+**Component-level (`brainstorm.test.tsx`)**
+- Renders a `<canvas>` and a toolbar (`role="group"`, name matching `/tools/i`)
+- Canvas has inline `touchAction: "none"` (regression: Tailwind `touch-none` class was silently dropped when glued to a template literal — must be set inline, never class-only)
+- Rectangle tool: drag commits a shape; undo removes it
+- Delete key removes the selected element
+- Ctrl+D duplicates the selected element
+- Ctrl+Z / Ctrl+Shift+Z drive undo/redo
+- Export JSON / Export PNG buttons trigger download without throwing
+- Importing a valid JSON file replaces the scene
+- Importing malformed JSON shows an error alert without crashing
+- Text tool: pointerdown places an overlay; blur with content commits a text element; blur while empty commits nothing
+- Clicking outside an active text overlay finalizes it in place (does not reopen a new box)
+- Clicking inside an existing text object reopens it for editing instead of stacking a duplicate
+- Canvas mousedown calls `preventDefault()` so it cannot steal focus from the text overlay
+- Clear requires a second confirming click before wiping the board
+- Multi-selection: marquee select + Delete removes the whole group; sub-threshold click on empty canvas clears selection; clicking a single object selects only it; copy/paste and cut/paste operate on the full selected group
+- Hand tool: shows grab cursor when active; clicking an object with the hand tool does not select it; panning preserves the existing selection and creates no history entry
+- Tool registry: `brainstorm` slug is registered in `lib/tools.config.ts` and appears in `toolSummaries`
+
+**Persistence (`brainstorm-persistence.test.tsx`, via `useBrainstorm` hook)**
+- Debounces saves — scene persists to localStorage ~600ms after the last edit, not immediately
+- Loads a previously saved scene on mount
+- Rectangle drag commits exactly one element and one undo step; a click without drag does not commit a degenerate zero-size shape
+- Rectangle drawn up-and-left is normalized to positive w/h on commit
+- Pen drag commits a freedraw element with all moved-through points
+- Select tool: click selects; drag moves as a single undo step
+- Resize via a corner handle keeps the opposite corner fixed
+- Eraser drag over multiple elements removes them all in a single undo step
+- `duplicateSelection` / `deleteSelection` operate on the current selection
+- `commitText` ignores empty/whitespace-only text, commits non-empty text
+- `exportJsonText` / `importJsonText` round-trip the scene; malformed JSON is rejected without throwing or mutating the scene
+
+> Note: All Brainstorm engine logic (geometry, scene mutation, history stack, viewport transforms, serialization, storage) is covered by dedicated unit tests under `tests/brainstorm/`, independent of the component tests above.
