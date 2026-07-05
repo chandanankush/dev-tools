@@ -27,12 +27,12 @@ import type { Box, ResizeHandle } from "@/lib/brainstorm/geometry";
 import { createHistory, pushSnapshot, redo as historyRedo, undo as historyUndo } from "@/lib/brainstorm/history";
 import type { History } from "@/lib/brainstorm/history";
 import { fromJSON, toJSON, exportPng as exportPngFile } from "@/lib/brainstorm/serialize";
-import { loadScene, saveScene } from "@/lib/brainstorm/storage";
+import { loadScene, loadSettings, saveScene, saveSettings } from "@/lib/brainstorm/storage";
 import { pan as panViewport, zoomAt as zoomViewportAt } from "@/lib/brainstorm/viewport";
-import { createEmptyScene } from "@/lib/brainstorm/types";
-import type { Element, Scene, ShapeElement, TextElement, Viewport } from "@/lib/brainstorm/types";
+import { createEmptyScene, DEFAULT_STROKE_COLOR, DEFAULT_STROKE_WIDTH } from "@/lib/brainstorm/types";
+import type { Element, Scene, ShapeElement, TextElement, ToolName, Viewport } from "@/lib/brainstorm/types";
 
-export type ToolName = "select" | "hand" | "pen" | "rectangle" | "ellipse" | "line" | "arrow" | "text" | "eraser";
+export type { ToolName };
 
 type Point = { x: number; y: number };
 
@@ -55,8 +55,6 @@ const RESIZE_HANDLE_SCREEN_PX = 8;
 const DRAG_THRESHOLD_PX = 4;
 /** Fixed offset applied to duplicated and pasted elements. */
 const PASTE_OFFSET = 10;
-const DEFAULT_STROKE_COLOR = "#1e1e1e";
-const DEFAULT_STROKE_WIDTH = 2;
 /** Exported so index.tsx's text-overlay textarea can size its font to match
  * exactly what commitText below will bake into the committed TextElement. */
 export const TEXT_FONT_SIZE = 20;
@@ -112,6 +110,9 @@ export function useBrainstorm() {
   const dragRef = useRef<DragState | null>(null);
   const draftOriginRef = useRef<Point | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Skips the settings-save effect's initial mount run so the persisted values
+  // loaded on mount are never overwritten by the default state they replace.
+  const skipFirstSettingsSaveRef = useRef(true);
   // In-memory clipboard for copy/cut/paste — holds deep copies so later edits
   // or deletion of the originals never mutate what will be pasted.
   const clipboardRef = useRef<Element[]>([]);
@@ -155,6 +156,27 @@ export function useBrainstorm() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, [history.present]);
+
+  // Load persisted UI settings on mount (client-only, same reason as the scene
+  // load above: localStorage is unavailable during SSR).
+  useEffect(() => {
+    const settings = loadSettings();
+    setTool(settings.tool);
+    setStrokeColor(settings.strokeColor);
+    setFillColor(settings.fillColor);
+    setStrokeWidth(settings.strokeWidth);
+  }, []);
+
+  // Persist settings on change. The skip-first guard drops the initial mount
+  // run — where state still holds defaults — so it can't clobber what the load
+  // effect above is about to restore.
+  useEffect(() => {
+    if (skipFirstSettingsSaveRef.current) {
+      skipFirstSettingsSaveRef.current = false;
+      return;
+    }
+    saveSettings({ tool, strokeColor, fillColor, strokeWidth });
+  }, [tool, strokeColor, fillColor, strokeWidth]);
 
   const scene = liveScene ?? history.present;
 

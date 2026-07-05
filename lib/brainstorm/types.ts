@@ -48,3 +48,24 @@ export type Viewport = { scrollX: number; scrollY: number; zoom: number };
 export function createEmptyScene(): Scene {
   return { version: 1, elements: [] };
 }
+
+export type ToolName = "select" | "hand" | "pen" | "rectangle" | "ellipse" | "line" | "arrow" | "text" | "eraser";
+
+export const TOOL_NAMES: readonly ToolName[] = ["select", "hand", "pen", "rectangle", "ellipse", "line", "arrow", "text", "eraser"];
+
+export const DEFAULT_STROKE_COLOR = "#1e1e1e";
+export const DEFAULT_STROKE_WIDTH = 2;
+
+/** UI drawing preferences persisted separately from Scene so the active tool,
+ * colours, and width survive a page refresh. Viewport is deliberately excluded
+ * (session-only). */
+export type BrainstormSettings = {
+  tool: ToolName;
+  strokeColor: string;
+  fillColor: string | null;
+  strokeWidth: number;
+};
+
+export function createDefaultSettings(): BrainstormSettings {
+  return { tool: "select", strokeColor: DEFAULT_STROKE_COLOR, fillColor: null, strokeWidth: DEFAULT_STROKE_WIDTH };
+}
