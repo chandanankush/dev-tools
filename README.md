@@ -23,7 +23,7 @@ Made by **[Chandan Singh](https://www.linkedin.com/in/chandan-singh-mobileengine
 |---|---|
 | **Base64 Tool** | Encode plain text or decode Base64 strings with copy-friendly output |
 | **Basic Calculator** | Evaluate arithmetic expressions with full operator and parentheses support, `%` percentage operator (context-aware: `200+10%=220`), GST and Discount quick-action buttons, Weight Price tab (per kg/500g/100g/2kg, rounding, reverse mode), keyboard input, and a localStorage-backed history of the last 50 calculations |
-| **Brainstorm** | Infinite, hand-drawn whiteboard for sketching ideas — pen, shapes, text, and more; full-bleed layout |
+| **Brainstorm** | Infinite, hand-drawn whiteboard for sketching ideas — pen, shapes, text, and more; drag a selection from anywhere inside its box; two-finger pinch-to-zoom and pan on touch devices; full-bleed layout |
 | **Compare Tools** | Side-by-side diff for JSON payloads and cURL commands |
 | **Editor Pad** | Browser-based notepad with multiple notes, plain text, rich text (WYSIWYG), and Markdown (write/preview/split) modes, multi-note sidebar, find & replace, font size control, word wrap, file import/export, and **PDF download** (adaptive resolution, dark-mode safe); per-note cap of 500 k chars and 2 M char aggregate limit with inline warning banner |
 | **JSON Tools** | Prettify, validate, and explore JSON with a collapsible tree viewer |
@@ -79,7 +79,7 @@ Password generation uses rejection-sampling (`unbiasedRandom`) to eliminate modu
 
 ## Testing
 
-Vitest 4 + `@testing-library/react`, jsdom environment. 24 test files across all tools, including a dedicated Brainstorm test suite (canvas geometry, scene, history, viewport, serialization, storage) and SEO/sitemap tests.
+Vitest 4 + `@testing-library/react`, jsdom environment. 25 test files across all tools, including a dedicated Brainstorm test suite (canvas geometry, scene, history, viewport, serialization, storage, touch-gesture math) and SEO/sitemap tests.
 
 ```bash
 pnpm test

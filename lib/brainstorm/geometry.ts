@@ -36,6 +36,12 @@ export function unionBox(boxes: Box[]): Box {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
+/** Grows a box by `pad` on every side. Used to make the selection box's drag
+ * target (and its drawn outline) forgiving for thin/zero-area selections. */
+export function padBox(box: Box, pad: number): Box {
+  return { x: box.x - pad, y: box.y - pad, w: box.w + 2 * pad, h: box.h + 2 * pad };
+}
+
 export function boundingBox(element: Element): Box {
   switch (element.type) {
     case "rectangle":
@@ -110,7 +116,7 @@ export function distToSegment(point: Point, a: Point, b: Point): number {
   return Math.hypot(point.x - projX, point.y - projY);
 }
 
-function pointInBox(point: Point, box: Box, tolerance: number): boolean {
+export function pointInBox(point: Point, box: Box, tolerance = 0): boolean {
   return (
     point.x >= box.x - tolerance &&
     point.x <= box.x + box.w + tolerance &&
