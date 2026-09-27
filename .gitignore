@@ -8,3 +8,6 @@
 pnpm-debug.log
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Claude Code local settings (per-user)
+.claude/settings.local.json
