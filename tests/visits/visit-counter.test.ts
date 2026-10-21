@@ -60,6 +60,15 @@ describe("visit-counter", () => {
     expect(await second.incrementCount()).toBe(3);
   });
 
+  it("has no upper limit on the total", async () => {
+    await writeFile(path.join(dir, "visits.json"), JSON.stringify({ count: 123_456_789_012 }));
+    const { incrementCount, getCount } = await loadModule();
+
+    expect(await getCount()).toBe(123_456_789_012);
+    expect(await incrementCount()).toBe(123_456_789_013);
+    expect((await readStored()).count).toBe(123_456_789_013);
+  });
+
   it("does not lose updates under concurrent increments", async () => {
     const { incrementCount, getCount } = await loadModule();
 

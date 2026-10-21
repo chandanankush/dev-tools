@@ -60,8 +60,8 @@ describe("visit-rate-limit", () => {
       expect(allowed).toBe(MAX_POSTS_OVERALL);
     });
 
-    it("is 2,500 a minute", () => {
-      expect(limiter.MAX_POSTS_OVERALL).toBe(2_500);
+    it("is 100 a minute", () => {
+      expect(limiter.MAX_POSTS_OVERALL).toBe(100);
     });
 
     it("resumes once the window has passed", () => {

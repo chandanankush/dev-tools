@@ -140,7 +140,13 @@ docker run --rm -v dev-tools-data:/data -v "$PWD":/backup alpine cp /data/visits
 docker volume rm dev-tools-data
 ```
 
-The image creates `/app/data` owned by `appuser`, so a new named volume is writable without extra steps. A bind mount (`-v /host/path:/app/data`) must be writable by the container user (uid 100).
+The image creates `/app/data` owned by `appuser`, so a new named volume is writable without extra steps — provided the volume is first mounted by this image (Docker copies the directory's ownership into an empty volume on first mount). A volume first mounted by another container, or a bind mount (`-v /host/path:/app/data`), keeps whatever owner it has and must be writable by the container user (uid 100).
+
+If counting stops — the footer counter disappears and `POST /api/visits` returns 500 — the volume is probably root-owned. Fix it with:
+
+```bash
+docker run --rm -v dev-tools-data:/d alpine chown 100:101 /d
+```
 
 ---
 

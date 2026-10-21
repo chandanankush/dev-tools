@@ -11,11 +11,14 @@
  * MAX_POSTS_OVERALL a minute. The trade-off is that a flood can use up that budget and
  * delay counting real visitors until the window passes — acceptable for a visitor count.
  *
+ * These limits cap how fast the count can rise, never how high it can go: the stored
+ * total has no upper limit.
+ *
  * Nothing here is persisted; IPs are forgotten once the window passes.
  */
 export const WINDOW_MS = 60_000;
 export const MAX_POSTS_PER_IP = 5;
-export const MAX_POSTS_OVERALL = 2_500;
+export const MAX_POSTS_OVERALL = 100;
 
 // Twice the overall limit, so pruning expired entries always brings the map well below it:
 // at most MAX_POSTS_OVERALL addresses can have a live (unexpired) entry.
