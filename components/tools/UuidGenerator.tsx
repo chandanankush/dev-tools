@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { copyToClipboard } from "@/lib/clipboard";
+import { useCopyFlag } from "@/lib/hooks/useCopyFlag";
 
 function createUuidList(count: number) {
   return Array.from({ length: Math.min(count, 100) }, () => crypto.randomUUID());
@@ -28,20 +30,54 @@ function createUuidList(count: number) {
 export default function UuidGenerator() {
   const [amount, setAmount] = useState(5);
   const [uuids, setUuids] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const { isCopied, trigger: triggerCopy, reset: resetCopy } = useCopyFlag();
 
   const regenerate = useCallback(() => {
     setUuids(createUuidList(amount));
-  }, [amount]);
+    resetCopy();
+    setError(null);
+  }, [amount, resetCopy]);
 
   useEffect(() => {
     regenerate();
   }, [regenerate]);
 
+  const copyAll = async () => {
+    if (uuids.length === 0) return;
+    setError(null);
+    try {
+      await copyToClipboard(uuids.join("\n"));
+      triggerCopy();
+    } catch (clipboardError) {
+      setError((clipboardError as Error).message || "Unable to copy to clipboard.");
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_200px]">
         <div className="space-y-2">
-          <Label htmlFor="uuid-output">Generated UUIDs</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="uuid-output">Generated UUIDs</Label>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={uuids.length === 0}
+              onClick={() => void copyAll()}
+            >
+              {isCopied ? "Copied!" : "Copy all"}
+            </Button>
+          </div>
           <Textarea
             id="uuid-output"
             readOnly
