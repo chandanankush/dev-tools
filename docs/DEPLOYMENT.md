@@ -1,6 +1,6 @@
 # Deployment
 
-This project ships as a **Docker container** built by a **Jenkins CI/CD pipeline** and deployed to a remote host (default: `pios.local` — a Raspberry Pi or similar ARM device).
+This project ships as a **Docker container** built by a **Jenkins CI/CD pipeline** and deployed to a remote host (default: `pipubserver.local` — a Raspberry Pi or similar ARM device).
 
 A separate GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR to `main` — type check (`tsc --noEmit`), lint, test, and build — as a merge gate. It does not build or deploy the Docker image; that remains Jenkins' responsibility.
 
@@ -10,10 +10,10 @@ A separate GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every pu
 
 ```
 Dockerfile (multi-stage)
-├── base      node:26-alpine + corepack (installed via npm — required for Node 25+)
+├── base      node:26-alpine + corepack (installed via npm — build-time only, required for Node 25+)
 ├── deps      pnpm install --frozen-lockfile
 ├── builder   next build  (standalone output)
-└── runner    apk upgrade + npm@latest → non-root USER appuser → node server.js (port 3050)
+└── runner    fresh node:26-alpine → apk upgrade → npm/npx/corepack removed → non-root USER appuser → node server.js (port 3050)
 ```
 
 `next.config.ts` sets `output: "standalone"` — the runner image ships only what is needed (`server.js`, `.next/standalone`, `.next/static`, `public/`). No `node_modules` in the final image.
@@ -46,9 +46,9 @@ File: `Jenkinsfile`
 |---|---|---|---|
 | `SITE_URL` | string | `https://mopplications.com` | Sets `NEXT_PUBLIC_SITE_URL` at build time |
 | `DEPLOY_REMOTE` | boolean | `true` | SSH + deploy to remote Docker host after build |
-| `REMOTE_HOST` | string | `pios.local` | Hostname or IP of target machine |
+| `REMOTE_HOST` | string | `pipubserver.local` | Hostname or IP of target machine |
 | `REMOTE_APP_NAME` | string | `dev-tools` | Docker container name on remote |
-| `REMOTE_PORT_MAPPING` | string | `5000:3050` | `<host>:<container>` port mapping |
+| `REMOTE_PORT_MAPPING` | string | `3050:3050` | `<host>:<container>` port mapping |
 | `REMOTE_ENV_VARS` | string | `-e NEXT_PUBLIC_SITE_URL=...` | Extra env flags for `docker run` |
 | `REMOTE_RUN_ARGS` | string | — | Additional `docker run` flags |
 | `SSH_CREDENTIALS_ID` | string | `pi-ssh-key` | Jenkins credential ID (SSH Username with private key) |
@@ -83,7 +83,7 @@ flowchart LR
 ### SSH key setup
 
 1. Generate a key on the build machine: `ssh-keygen -t ed25519 -C "jenkins-deploy"`
-2. Copy the public key to the remote host: `ssh-copy-id -i ~/.ssh/id_ed25519.pub user@pios.local`
+2. Copy the public key to the remote host: `ssh-copy-id -i ~/.ssh/id_ed25519.pub user@<deploy-host>`
 3. In Jenkins → Credentials → Add → **SSH Username with private key**
    - Username: the remote host's OS user (e.g. `pi`)
    - Private key: paste the contents of `~/.ssh/id_ed25519`
@@ -120,12 +120,12 @@ docker buildx build \
 docker run -d \
   --name dev-tools \
   --restart unless-stopped \
-  -p 5000:3050 \
+  -p 3050:3050 \
   -e NEXT_PUBLIC_SITE_URL=https://mopplications.com \
   dev-tools:latest
 ```
 
-App is available at `http://<host>:5000`.
+App is available at `http://<host>:3050`.
 
 ---
 
@@ -139,16 +139,16 @@ flowchart TD
         C --> F[Image loaded locally]
     end
 
-    subgraph Remote["Raspberry Pi (pios.local)"]
+    subgraph Remote["Raspberry Pi (pipubserver.local)"]
         G[docker stop dev-tools]
         G --> H[docker rm dev-tools]
-        H --> I[docker run\n--restart unless-stopped\n-p 5000:3050]
+        H --> I[docker run\n--restart unless-stopped\n-p 3050:3050]
         I --> J[Next.js standalone\nNode 26 server.js\nport 3050]
     end
 
     subgraph Internet
         K[User Browser] -->|HTTPS| L[Cloudflare Proxy]
-        L -->|http :5000| J
+        L -->|http :3050| J
     end
 
     F -- "docker save | gzip | ssh | gunzip | docker load" --> G
@@ -158,13 +158,13 @@ flowchart TD
 
 ## Reverse proxy (recommended)
 
-The container exposes port `3050` internally (mapped to `5000` by default). Place a reverse proxy in front for HTTPS termination.
+The container exposes port `3050` internally (mapped to `3050` by default). Place a reverse proxy in front for HTTPS termination.
 
 ### Caddy example
 
 ```caddyfile
 mopplications.com {
-    reverse_proxy localhost:5000
+    reverse_proxy localhost:3050
 }
 ```
 
@@ -187,7 +187,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/mopplications.com/privkey.pem;
 
     location / {
-        proxy_pass         http://localhost:5000;
+        proxy_pass         http://localhost:3050;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection 'upgrade';
@@ -203,7 +203,7 @@ server {
 ## Health check
 
 ```bash
-curl -sf http://localhost:5000 | head -c 200
+curl -sf http://localhost:3050 | head -c 200
 # Should return the HTML of the homepage
 ```
 

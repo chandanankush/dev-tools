@@ -18,7 +18,7 @@ pipeline {
     )
     string(
       name: 'REMOTE_HOST',
-      defaultValue: 'pios.local',
+      defaultValue: 'pipubserver.local',
       description: 'Remote host name or IP for deployment'
     )
     string(

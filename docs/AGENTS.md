@@ -4,6 +4,8 @@ This document defines conventions for AI coding agents (GitHub Copilot, Claude, 
 
 > **Claude Code users:** The root `CLAUDE.md` file contains the authoritative security rules and banned patterns. Read it first. This document provides architecture and convention context.
 
+> **This is a public repository.** Code, docs, commits, PR text and CI logs are world-readable and permanent. Never include secrets, internal hostnames/IPs, credential IDs, employer-confidential details, personal data or local paths (`/Users/<name>/…`). Check `git config user.email` before committing, and review every diff — yours or an agent's — against the **Public repository** section of `CLAUDE.md`.
+
 ---
 
 ## Mandatory pre-commit checklist
@@ -106,7 +108,7 @@ Quick agent checklist:
 
 - Runner: **Vitest** + `@testing-library/react` + `jsdom`.
 - Setup file: `tests/setup.ts` — mocks `next/image`, runs `cleanup` after each test.
-- 24 test files total: 15 in `tests/tools/` (component-level, 39 for basic-calculator alone, 46 for editor-pad), 7 in `tests/brainstorm/` (canvas engine unit tests — geometry, scene, history, viewport, serialize, storage, render), and 2 in `tests/seo/` (sitemap/metadata).
+- 25 test files total (280 tests): 15 in `tests/tools/` (component-level, 39 for basic-calculator alone, 46 for editor-pad), 8 in `tests/brainstorm/` (canvas engine unit tests — geometry, scene, history, viewport, serialize, storage, render, gestures), and 2 in `tests/seo/` (sitemap/metadata).
 - Heavy DOM packages (ProseMirror/Tiptap, canvas, WebGL) **must be mocked** — jsdom does not support them.
 - Mocks go at the top of the test file using `vi.mock(...)` before any imports of the component.
 - Use `vi.stubGlobal("localStorage", ...)` for localStorage — do not rely on jsdom's built-in implementation for persistence tests.
@@ -281,7 +283,7 @@ In Next.js 16, the middleware file is named **`proxy.ts`** (not `middleware.ts`)
 
 The Dockerfile runner stage runs as non-root user `appuser`. Never remove the `USER appuser` directive — running as root is a HIGH severity security finding.
 
-The runner stage also runs `apk upgrade --no-cache && npm install -g npm@latest` to pick up Alpine CVE patches. Keep these lines.
+The runner stage runs `apk upgrade --no-cache` to pick up Alpine CVE patches and then deletes npm, npx and corepack — the standalone server only needs `node server.js`, and shipping a package manager adds its transitive CVEs for no runtime benefit. Keep these lines, and never reintroduce `npm install -g npm@latest` in the runner.
 
 ---
 

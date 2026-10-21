@@ -51,6 +51,8 @@ Ask questions in [Discussions](https://github.com/chandanankush/dev-tools/discus
 
 Read [CONTRIBUTING](docs/CONTRIBUTING.md) and browse [good first issues](https://github.com/chandanankush/dev-tools/labels/good%20first%20issue) or [browser-testing requests](https://github.com/chandanankush/dev-tools/labels/help%20wanted). Runtime contributions follow the repository's `development` → `main` PR workflow.
 
+This is a public repository, so keep secrets, private hostnames and personal data out of issues, PRs and examples. Report security vulnerabilities privately — see [SECURITY.md](SECURITY.md).
+
 Developer references: [architecture](docs/ARCHITECTURE.md), [scripts and implementation](docs/project-reference.md), [test cases](testcase.md), and [agent rules](AGENTS.md).
 
 ## License
