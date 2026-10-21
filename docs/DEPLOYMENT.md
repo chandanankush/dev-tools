@@ -1,6 +1,6 @@
 # Deployment
 
-This project ships as a **Docker container** built by a **Jenkins CI/CD pipeline** and deployed to a remote host (default: `pios.local` — a Raspberry Pi or similar ARM device).
+This project ships as a **Docker container** built by a **Jenkins CI/CD pipeline** and deployed to a remote host (default: `pipubserver.local` — a Raspberry Pi or similar ARM device).
 
 A separate GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR to `main` — type check (`tsc --noEmit`), lint, test, and build — as a merge gate. It does not build or deploy the Docker image; that remains Jenkins' responsibility.
 
@@ -46,7 +46,7 @@ File: `Jenkinsfile`
 |---|---|---|---|
 | `SITE_URL` | string | `https://mopplications.com` | Sets `NEXT_PUBLIC_SITE_URL` at build time |
 | `DEPLOY_REMOTE` | boolean | `true` | SSH + deploy to remote Docker host after build |
-| `REMOTE_HOST` | string | `pios.local` | Hostname or IP of target machine |
+| `REMOTE_HOST` | string | `pipubserver.local` | Hostname or IP of target machine |
 | `REMOTE_APP_NAME` | string | `dev-tools` | Docker container name on remote |
 | `REMOTE_PORT_MAPPING` | string | `3050:3050` | `<host>:<container>` port mapping |
 | `REMOTE_ENV_VARS` | string | `-e NEXT_PUBLIC_SITE_URL=...` | Extra env flags for `docker run` |
@@ -139,7 +139,7 @@ flowchart TD
         C --> F[Image loaded locally]
     end
 
-    subgraph Remote["Raspberry Pi (pios.local)"]
+    subgraph Remote["Raspberry Pi (pipubserver.local)"]
         G[docker stop dev-tools]
         G --> H[docker rm dev-tools]
         H --> I[docker run\n--restart unless-stopped\n-p 3050:3050]
