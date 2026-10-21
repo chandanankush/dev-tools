@@ -55,7 +55,10 @@
       "source-map-js": ">=1.2.2",
       "prosemirror-view": ">=1.42.3",
       "dompurify": ">=3.4.16",
-      "baseline-browser-mapping": ">=2.11.0"
+      "baseline-browser-mapping": ">=2.11.0",
+      "undici@^7": "^7.29.1",
+      "js-yaml@^4": "^4.3.2",
+      "brace-expansion@^2": "^2.1.7"
     }
   },
   "devDependencies": {
@@ -75,8 +78,8 @@
     "prettier": "^3.9.4",
     "tailwindcss": "^4.3.1",
     "typescript": "^5.5.4",
-    "vite": "^8.0.16",
+    "vite": "^8.1.6",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.11"
   }
 }
