@@ -15,6 +15,9 @@ tmp
 # Claude Code agent worktrees and memory (can be gigabytes)
 .claude/
 
+# CI helper scripts run on the Jenkins agent / deploy host, never inside the image
+ci/
+
 # Runtime data and generated files
 data/
 coverage

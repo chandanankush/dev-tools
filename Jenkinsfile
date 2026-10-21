@@ -3,6 +3,9 @@ pipeline {
 
   options {
     timestamps()
+    // A normal run takes ~5 minutes; this only exists so a stalled step (e.g. a hung image
+    // pull) fails the build instead of occupying the executor indefinitely.
+    timeout(time: 30, unit: 'MINUTES')
   }
 
   parameters {
@@ -38,16 +41,16 @@ pipeline {
     )
     string(
       name: 'REMOTE_RUN_ARGS',
-      defaultValue: '-v dev-tools-data:/app/data',
-      description: '''Additional docker run flags appended verbatim after the port and env flags.
-The default mounts the volume that stores the visitor count; keep it in any value you set
-or the count resets on every deploy.
+      defaultValue: '',
+      description: '''Optional extra docker run flags, appended verbatim after the port, env and data-volume flags.
+The pipeline always mounts the dev-tools-data volume at /app/data (it stores the visitor count),
+so do not mount /app/data here.
 Examples (pick what you need, space-separated):
   Resource limits:   --memory 512m --cpus 1.0
   Log rotation:      --log-opt max-size=10m --log-opt max-file=3
   Custom network:    --network my-net
   Read-only mount:   -v /host/config:/app/config:ro
-  Multiple together: -v dev-tools-data:/app/data --memory 512m --log-opt max-size=10m --network my-net'''
+  Multiple together: --memory 512m --log-opt max-size=10m --network my-net'''
     )
     string(
       name: 'SSH_CREDENTIALS_ID',
@@ -60,6 +63,8 @@ Examples (pick what you need, space-separated):
     DOCKER_BUILDKIT = '1'
     BUILDX_INSTANCE = 'multiarch'
     IMAGE_NAME      = 'dev-tools'
+    DATA_VOLUME     = 'dev-tools-data'
+    DATA_DIR        = '/app/data'
     PATH            = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
   }
 
@@ -84,7 +89,57 @@ Examples (pick what you need, space-separated):
       }
     }
 
+    // Runs before the (slow) build so an unreachable or unsuitable deploy target is found in seconds.
+    stage('Remote Precheck') {
+      when {
+        expression { params.DEPLOY_REMOTE }
+      }
+      options {
+        timeout(time: 3, unit: 'MINUTES')
+      }
+      steps {
+        script {
+          def remoteHost = params.REMOTE_HOST?.trim()
+          def sshCredsId = params.SSH_CREDENTIALS_ID?.trim() ?: 'remote-ssh-key'
+
+          if (!remoteHost) {
+            error('REMOTE_HOST must be provided when DEPLOY_REMOTE is enabled')
+          }
+
+          withEnv(["PRECHECK_HOST=${remoteHost}"]) {
+            withCredentials([sshUserPrivateKey(credentialsId: sshCredsId, keyFileVariable: 'DEPLOY_KEY', usernameVariable: 'DEPLOY_USER')]) {
+              sh label: 'Check the deploy host is reachable and suitable', script: '''
+                set -euo pipefail
+
+                mkdir -p ~/.ssh && chmod 700 ~/.ssh
+                if ! ssh-keygen -F "$PRECHECK_HOST" >/dev/null 2>&1; then
+                  echo "Registering SSH host key for $PRECHECK_HOST"
+                  HOST_KEYS="$(ssh-keyscan -T 10 -H "$PRECHECK_HOST" 2>/dev/null || true)"
+                  if [ -z "$HOST_KEYS" ]; then
+                    echo "ERROR: cannot reach $PRECHECK_HOST on SSH (port 22). Is the host on and on the network/tailnet, and is REMOTE_HOST right?" >&2
+                    exit 1
+                  fi
+                  echo "$HOST_KEYS" >> ~/.ssh/known_hosts
+                fi
+
+                echo "Connecting to $DEPLOY_USER@$PRECHECK_HOST"
+                if ! ssh -i "$DEPLOY_KEY" -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10 \\
+                    -o ServerAliveInterval=5 -o ServerAliveCountMax=3 \\
+                    "$DEPLOY_USER@$PRECHECK_HOST" "bash -s -- '$DATA_VOLUME'" < ci/remote-precheck.sh; then
+                  echo "ERROR: the remote precheck failed (see the output above). Nothing has been built or changed." >&2
+                  exit 1
+                fi
+              '''
+            }
+          }
+        }
+      }
+    }
+
     stage('Docker Readiness') {
+      options {
+        timeout(time: 5, unit: 'MINUTES')
+      }
       steps {
         sh '''
           set -euo pipefail
@@ -116,37 +171,46 @@ Examples (pick what you need, space-separated):
 
     stage('Setup Buildx') {
       steps {
-        sh '''
-          set -uo pipefail
+        // A hung image pull never fails, so the retry loop below cannot help; the timeout turns a
+        // hang into a failure and `retry` starts a clean attempt.
+        retry(2) {
+          timeout(time: 5, unit: 'MINUTES') {
+            sh '''
+              set -uo pipefail
 
-          # A cold-started Docker Desktop answers `docker info` before its
-          # storage subsystem is fully initialised, so buildx's buildkit
-          # container fails to boot with "RWLayer ... is unexpectedly nil".
-          # Tear down any stale builder left by a previous run and retry the
-          # bootstrap with backoff until the daemon has settled.
-          bootstrap_buildx() {
-            docker buildx rm "${BUILDX_INSTANCE}" 2>/dev/null || true
-            docker rm -f "buildx_buildkit_${BUILDX_INSTANCE}0" 2>/dev/null || true
-            docker buildx create --name "${BUILDX_INSTANCE}" --bootstrap --use \\
-              && docker buildx inspect --bootstrap
+              # A cold-started Docker Desktop answers `docker info` before its
+              # storage subsystem is fully initialised, so buildx's buildkit
+              # container fails to boot with "RWLayer ... is unexpectedly nil".
+              # Tear down any stale builder left by a previous run and retry the
+              # bootstrap with backoff until the daemon has settled.
+              bootstrap_buildx() {
+                docker buildx rm "${BUILDX_INSTANCE}" 2>/dev/null || true
+                docker rm -f "buildx_buildkit_${BUILDX_INSTANCE}0" 2>/dev/null || true
+                docker buildx create --name "${BUILDX_INSTANCE}" --bootstrap --use \\
+                  && docker buildx inspect --bootstrap
+              }
+
+              ATTEMPT=1
+              MAX_ATTEMPTS=6
+              until bootstrap_buildx; do
+                if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+                  echo "ERROR: buildx failed to bootstrap after ${MAX_ATTEMPTS} attempts."
+                  exit 1
+                fi
+                echo "buildx bootstrap failed (attempt ${ATTEMPT}/${MAX_ATTEMPTS}) — Docker likely still warming up; retrying in 10s..."
+                ATTEMPT=$((ATTEMPT + 1))
+                sleep 10
+              done
+            '''
           }
-
-          ATTEMPT=1
-          MAX_ATTEMPTS=6
-          until bootstrap_buildx; do
-            if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
-              echo "ERROR: buildx failed to bootstrap after ${MAX_ATTEMPTS} attempts."
-              exit 1
-            fi
-            echo "buildx bootstrap failed (attempt ${ATTEMPT}/${MAX_ATTEMPTS}) — Docker likely still warming up; retrying in 10s..."
-            ATTEMPT=$((ATTEMPT + 1))
-            sleep 10
-          done
-        '''
+        }
       }
     }
 
     stage('Build Image') {
+      options {
+        timeout(time: 20, unit: 'MINUTES')
+      }
       steps {
         sh '''
           docker buildx build \
@@ -179,6 +243,9 @@ Examples (pick what you need, space-separated):
       when {
         expression { params.DEPLOY_REMOTE }
       }
+      options {
+        timeout(time: 15, unit: 'MINUTES')
+      }
       steps {
         script {
           def imageTag = "${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
@@ -187,7 +254,11 @@ Examples (pick what you need, space-separated):
           def remotePortMapping = params.REMOTE_PORT_MAPPING?.trim()
           def envArgsRaw = params.REMOTE_ENV_VARS ?: ''
           def envArgs = envArgsRaw.replace('${SITE_URL}', params.SITE_URL ?: '')
-          def runArgs = params.REMOTE_RUN_ARGS ?: ''
+          // The data volume is part of the app's design (it holds the visitor count), so the pipeline
+          // always mounts it. Older saved job forms may still carry it in REMOTE_RUN_ARGS: drop that
+          // copy so Docker does not see a duplicate mount point.
+          def dataMount = "-v ${env.DATA_VOLUME}:${env.DATA_DIR}"
+          def extraRunArgs = (params.REMOTE_RUN_ARGS ?: '').replace(dataMount, '').trim()
           def sshCredsId = params.SSH_CREDENTIALS_ID?.trim() ?: 'remote-ssh-key'
 
           if (!remoteHost) {
@@ -200,8 +271,11 @@ Examples (pick what you need, space-separated):
             error('REMOTE_PORT_MAPPING must be provided when DEPLOY_REMOTE is enabled')
           }
 
+          if (extraRunArgs.contains(env.DATA_DIR)) {
+            error("REMOTE_RUN_ARGS must not mount ${env.DATA_DIR}: the pipeline always mounts the ${env.DATA_VOLUME} volume there")
+          }
+
           def envArgsTrimmed = envArgs?.trim()
-          def runArgsTrimmed = runArgs?.trim()
 
           def runCommandParts = [
             'docker run',
@@ -214,8 +288,9 @@ Examples (pick what you need, space-separated):
           if (envArgsTrimmed) {
             runCommandParts << envArgsTrimmed
           }
-          if (runArgsTrimmed) {
-            runCommandParts << runArgsTrimmed
+          runCommandParts << dataMount
+          if (extraRunArgs) {
+            runCommandParts << extraRunArgs
           }
           runCommandParts << imageTag
 
@@ -232,9 +307,8 @@ Examples (pick what you need, space-separated):
               echo "Verifying local image: \$IMAGE_TAG"
               docker image inspect "\$IMAGE_TAG" >/dev/null 2>&1 || { echo "Image not found locally (\$IMAGE_TAG)"; exit 1; }
 
-              echo "Registering remote host key"
               mkdir -p ~/.ssh && chmod 700 ~/.ssh
-              ssh-keyscan -H "${remoteHost}" >> ~/.ssh/known_hosts
+              ssh-keygen -F "${remoteHost}" >/dev/null 2>&1 || ssh-keyscan -T 10 -H "${remoteHost}" >> ~/.ssh/known_hosts
 
               echo "Saving and transferring image to ${remoteHost}"
               docker save "\$IMAGE_TAG" | gzip | ssh -i "\$DEPLOY_KEY" "\$SSH_TARGET" 'gunzip | docker load'
@@ -245,15 +319,21 @@ set -euo pipefail
 docker stop ${remoteApp} || true
 docker rm ${remoteApp} || true
 ${remoteRunCommand}
+REMOTE_SCRIPT
 
-echo "Pruning old ${env.IMAGE_NAME} images on ${remoteHost} (keeping :${env.BUILD_NUMBER})"
+              echo "Verifying the deployment on ${remoteHost}"
+              ssh -i "\$DEPLOY_KEY" "\$SSH_TARGET" "bash -s -- '${remoteApp}' '${env.DATA_VOLUME}' '${env.DATA_DIR}'" < ci/verify-deploy.sh
+
+              echo "Pruning old ${env.IMAGE_NAME} images on ${remoteHost} (keeping :${env.BUILD_NUMBER})"
+              ssh -i "\$DEPLOY_KEY" "\$SSH_TARGET" 'bash -s' <<"PRUNE_SCRIPT"
+set -euo pipefail
 OLD_IMAGES=\$(docker images ${env.IMAGE_NAME} --format '{{.ID}} {{.Repository}}:{{.Tag}}' | grep -v ":${env.BUILD_NUMBER}\$" | awk '{print \$1}' | sort -u || true)
 if [ -n "\$OLD_IMAGES" ]; then
   echo "\$OLD_IMAGES" | xargs docker rmi -f || true
 else
   echo "No old images to remove on ${remoteHost}."
 fi
-REMOTE_SCRIPT
+PRUNE_SCRIPT
             """.stripIndent()
           }
         }

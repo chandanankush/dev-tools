@@ -50,7 +50,7 @@ File: `Jenkinsfile`
 | `REMOTE_APP_NAME` | string | `dev-tools` | Docker container name on remote |
 | `REMOTE_PORT_MAPPING` | string | `3050:3050` | `<host>:<container>` port mapping |
 | `REMOTE_ENV_VARS` | string | `-e NEXT_PUBLIC_SITE_URL=...` | Extra env flags for `docker run` |
-| `REMOTE_RUN_ARGS` | string | `-v dev-tools-data:/app/data` | Additional `docker run` flags. The default mounts the visitor-count volume — keep it in any value you set |
+| `REMOTE_RUN_ARGS` | string | — | Optional extra `docker run` flags. The pipeline always mounts the `dev-tools-data` volume at `/app/data` itself (it stores the visitor count), so do not mount `/app/data` here — the build fails if you do |
 | `SSH_CREDENTIALS_ID` | string | `pi-ssh-key` | Jenkins credential ID (SSH Username with private key) |
 
 > `IMAGE_NAME` is a fixed pipeline environment variable (`dev-tools`) — not a parameter. There is no registry push step; the image is streamed directly to the remote host over SSH. Image tags use the Jenkins `BUILD_NUMBER` (e.g. `dev-tools:42`), not `:latest`.
@@ -60,16 +60,27 @@ File: `Jenkinsfile`
 ```mermaid
 flowchart LR
     A[Checkout] --> B[Repo Info]
-    B --> C[Docker Readiness]
+    B --> P{DEPLOY_REMOTE?}
+    P -- Yes --> Q[Remote Precheck\nSSH reachable, docker up,\narm64, free disk]
+    P -- No --> C
+    Q --> C[Docker Readiness]
     C --> D[Setup Buildx]
     D --> E[Build Image\nlinux/arm64/v8\n--load]
     E --> F[Prune Old Images\non build agent]
     F --> G{DEPLOY_REMOTE?}
     G -- Yes --> H[docker save | gzip\n| ssh | gunzip | docker load]
-    H --> I[SSH: docker stop + rm\ndocker run --restart unless-stopped\n+ prune old images on remote]
+    H --> I[SSH: docker stop + rm\ndocker run --restart unless-stopped\n-v dev-tools-data:/app/data]
+    I --> V[Verify deployment\nrunning, volume mounted,\nwritable, /api/visits answers]
+    V --> W[Prune old images\non remote]
     G -- No --> J[Done]
-    I --> J
+    W --> J
 ```
+
+**Remote Precheck** (`ci/remote-precheck.sh`) runs first when `DEPLOY_REMOTE` is on, so a bad target is found in seconds rather than after the build. It checks that the host answers on SSH, the Jenkins key is accepted, the Docker daemon is usable by the deploy user, the CPU architecture is arm64 (the image is built for `linux/arm64/v8`) and at least 1 GiB is free for Docker. It changes nothing on the host.
+
+**Verify deployment** (`ci/verify-deploy.sh`) runs right after `docker run`, because `docker run -d` returns as soon as the container starts. It fails the build if the container is not running, the `dev-tools-data` volume is not mounted at `/app/data`, `/app/data` is not writable by the app user, or `GET /api/visits` does not answer. Old images on the remote host are pruned only after it passes, so a failed deploy leaves the previous image available for a manual rollback (`docker run` it with the same flags).
+
+**Timeouts.** The pipeline is capped at 30 minutes overall, with shorter limits on the precheck (3 min), Docker readiness (5), buildx setup (5 min per attempt, retried once), image build (20) and remote deploy (15), so a stalled step fails the build instead of hanging it.
 
 ### Credentials required in Jenkins
 
@@ -130,7 +141,7 @@ App is available at `http://<host>:3050`.
 
 ### Persistent data (visitor count)
 
-The footer visitor count is stored in `/app/data/visits.json`. The container filesystem is replaced on every deploy, so `/app/data` must be a volume — `-v dev-tools-data:/app/data`, which is the `REMOTE_RUN_ARGS` default in the Jenkinsfile. Without it the count restarts at 0 on each deploy.
+The footer visitor count is stored in `/app/data/visits.json`. The container filesystem is replaced on every deploy, so `/app/data` must be a volume. The Jenkins pipeline always adds `-v dev-tools-data:/app/data` itself (it is not a job parameter, so it cannot be cleared by accident) and the **Verify deployment** stage fails the build if the volume is missing. When running the container by hand, add the flag yourself, or the count restarts at 0 whenever the container is replaced.
 
 ```bash
 # back up the count
