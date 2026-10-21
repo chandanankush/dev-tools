@@ -273,6 +273,23 @@ Test file: `tests/tools/editor-pad.test.tsx`
 
 ---
 
+### Visitor counter (footer)
+
+Test files: `tests/visits/visit-counter.test.ts`, `tests/visits/visit-rate-limit.test.ts`, `tests/visits/visits-route.test.ts`, `tests/visits/visit-counter-component.test.tsx`
+
+- Count starts at 0, increments, and is restored after a restart
+- 50 concurrent increments produce exactly 50 (no lost updates); no temp file left behind
+- Stored file holds only `count` and `updatedAt`; a damaged or invalid file is kept as `visits.json.corrupt` and counting restarts at 0
+- A failed write rejects without advancing the count, and later writes still work
+- `GET /api/visits` returns `{ count }` with `Cache-Control: no-store`; `POST` increments
+- `POST` accepts same-origin requests and rejects `cross-site` / `same-site` / `none` Sec-Fetch-Site and foreign or unparseable Origin headers without counting
+- `POST` is limited to 5 per IP per minute (429 + `Retry-After`), other IPs unaffected, allowed again after the window
+- Client IP is `cf-connecting-ip`, else the rightmost `x-forwarded-for` hop; a forged leftmost entry does not escape the limit
+- `tests/visits/visit-rate-limit.test.ts`: per-IP limit (5/min, recovers after the window, blocked attempts are not counted); an overall cap of 100 increments per minute holds even when every request claims a different IP, recovers after the window, and rejects a flood in O(1) without touching the per-IP map; the per-IP map stays bounded across many windows
+- Rejected (cross-site) requests do not spend rate-limit budget
+- Storage failure returns a generic 500 that does not leak file paths
+- Component: first visit POSTs once and sets `dt-visit-counted`; return visit only GETs; blocked localStorage never POSTs; React Strict Mode counts once; failures render nothing and clear the flag so the visit is retried; non-numeric counts are ignored; numbers are formatted with thousands separators
+
 ## Recommended post-change checklist
 
 Run these after major changes (middleware/CSP, dependency bumps, UI refactors):

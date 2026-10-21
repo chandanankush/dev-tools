@@ -17,6 +17,7 @@
 import Link from "next/link";
 import { Terminal, Zap, Globe, Star, GitPullRequest, CircleDot } from "lucide-react";
 import { serializeJsonLd } from "@/lib/seo";
+import { VisitCounter } from "@/components/VisitCounter";
 
 const GithubIcon = () => (
   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
@@ -126,7 +127,7 @@ export default function HomePage() {
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">Open source &amp; community driven</p>
                 <p className="text-xs text-muted-foreground">
-                  Built with Next.js 16. Most tools run entirely client-side. The Short URL Expander uses a server-side proxy to follow redirects.
+                  Built with Next.js 16. Most tools run entirely client-side. The Short URL Expander uses a server-side proxy to follow redirects, and the footer visitor count is stored on the server.
                 </p>
               </div>
 
@@ -168,13 +169,16 @@ export default function HomePage() {
                 Chandan Singh — Mobile & Website Engineer
               </a>
 
-              {/* Privacy Policy link — required by CLAUDE.md rule 12 for any public-facing site */}
-              <Link
-                href="/privacy"
-                className="text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              >
-                Privacy Policy
-              </Link>
+              <div className="flex items-center gap-3">
+                {/* Privacy Policy link — required by CLAUDE.md rule 12 for any public-facing site */}
+                <Link
+                  href="/privacy"
+                  className="text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                >
+                  Privacy Policy
+                </Link>
+                <VisitCounter />
+              </div>
             </div>
           </footer>
         </div>

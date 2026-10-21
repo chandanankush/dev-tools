@@ -60,7 +60,7 @@ components/tools/<ToolName>.tsx
 
 - Must start with `"use client"`.
 - Must export a **default** component (the dynamic import in `tools.config.ts` uses `.default`).
-- All state stored in `localStorage` — no API calls except the existing `/api/expand-url` pattern.
+- All state stored in `localStorage` — no API calls except the existing `/api/expand-url` pattern (and the footer `/api/visits` counter).
 - Use components from `components/ui/` (Button, Input, Label, Textarea) for consistency.
 
 ### 2. Register in the tool registry

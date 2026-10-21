@@ -40,6 +40,7 @@ Open <http://localhost:3000>. For a production build, run `pnpm build` and then 
 ## Data handling and limitations
 
 - Most utility processing takes place in your browser. **Short URL Expander sends the submitted URL to the server**, which makes network requests to resolve redirects. Read the [privacy policy](https://mopplications.com/privacy) before using sensitive data.
+- The footer **visitor count** is a single number stored on the server. It counts unique browsers using a flag in your browser storage and keeps no IP address or visit history.
 - Saved notes, calculator history, theme, and drawing preferences use browser storage. Storage limits apply; clearing site data can remove saved work. Export notes you need to keep.
 - No universal offline guarantee: initial page loading, external resources, and the URL expander may need network access. Clipboard and download behavior depend on browser permissions and capabilities.
 - Password/JWT utilities are tools, not a credential vault or token-security audit. Use invented values in public examples and reports.

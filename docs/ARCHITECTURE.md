@@ -12,7 +12,8 @@ Dev Toolkit is a **browser-first** developer utility suite. The architecture fol
 Browser                             Server (Node 26)
 ──────────────────────────          ──────────────────────────────
 All tool state (localStorage)  ←→  Next.js App Router (standalone)
-All tool computation                /api/expand-url  ← only server-side logic
+All tool computation                /api/expand-url  ← server-side URL redirect follower
+                                    /api/visits      ← footer visitor count (one integer on disk)
 Dark/light theme persistence        Middleware: CSP nonce, security headers
 ```
 
@@ -52,8 +53,10 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 │   ├── robots.ts               Auto-generated robots.txt
 │   ├── sitemap.ts              Auto-generated sitemap.xml (all tool slugs)
 │   └── api/
-│       └── expand-url/
-│           └── route.ts        POST — server-side URL redirect follower
+│       ├── expand-url/
+│       │   └── route.ts        POST — server-side URL redirect follower
+│       └── visits/
+│           └── route.ts        GET/POST — visitor count (same-origin + rate-limited POST)
 │   └── tools/
 │       └── [slug]/
 │           └── page.tsx        Dynamic route — renders any registered tool
@@ -249,6 +252,24 @@ form-action 'self'
 
 `img-src 'self' data:` allows base64 data URIs used by the QR Code Generator preview without permitting arbitrary external images.
 
+### Visitor counter — `/api/visits`
+
+The footer shows "Visitors: N", counting **unique browsers**, and is the only server-side persistence in the app.
+
+```
+Browser (first visit) → localStorage flag "dt-visit-counted" absent
+  → set flag, POST /api/visits  → { count }      (increment)
+Browser (return visit) → flag present
+  → GET /api/visits             → { count }      (read only)
+```
+
+- **Storage:** `lib/visit-counter.ts` keeps one integer in `<VISITS_DATA_DIR>/visits.json` (`/app/data` in Docker). Reads come from memory; increments are serialised and written atomically (temp file + rename). A damaged file is kept as `visits.json.corrupt` and counting restarts from 0. Single-process only — more than one instance would need a real database.
+- **Deployment:** `/app/data` must be a mounted volume (`-v dev-tools-data:/app/data`, the Jenkins `REMOTE_RUN_ARGS` default) or the count resets whenever the container is replaced.
+- **Abuse guard (basic, not authentication):** POST must be same-origin (`Sec-Fetch-Site` / `Origin`), limited to 5 per IP per minute, and capped at 100 per minute overall (`lib/visit-rate-limit.ts`). These limits bound how fast the count rises, not how high it goes — the stored total has no upper limit. The client IP is `cf-connecting-ip`, else the rightmost `X-Forwarded-For` hop (the leftmost is client-supplied). Headers can be forged by anyone who reaches the origin directly, so the overall cap is the real backstop: the count can never rise faster than 100 a minute. A flood can use up that budget and delay counting real visitors until the window passes — an accepted trade-off for a visitor count. Keep the origin behind Cloudflare / the reverse proxy rather than exposing the port. IPs live in memory for the window and are never written.
+- **No ceiling on the total:** it is a plain JSON integer that only ever increases; nothing caps it.
+- **Privacy:** no IP, user agent or per-visit record is stored; disclosed on `/privacy`. If localStorage is blocked the client only reads, so the count is never inflated.
+- **No outbound requests**, so no SSRF surface. The CSP is unchanged (`connect-src 'self'`).
+
 ### API security — `/api/expand-url`
 
 The URL Expander API prevents SSRF via three layers:
@@ -358,5 +379,5 @@ flowchart TD
 | Tailwind CSS v4 (CSS-first) | `@theme inline` replaces `tailwind.config.ts`; `@custom-variant dark` handles class-based dark mode; `tw-animate-css` replaces `tailwindcss-animate` |
 | `output: standalone` | Minimal Docker image — only ships the Node server + `.next/standalone` |
 | Nonce-based CSP over hash-based | Per-request nonces are immune to static analysis attacks; compatible with `'strict-dynamic'` |
-| localStorage only | No auth, no server persistence, no GDPR surface; works offline |
+| localStorage only (plus the visitor count file) | No auth, no sessions or database, minimal GDPR surface; tools work offline. The one server-side file is an aggregate visitor count |
 | Fuse.js threshold 0.35 | Balanced between precision (avoid false positives) and recall (typo tolerance) |

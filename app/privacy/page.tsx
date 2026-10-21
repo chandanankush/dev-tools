@@ -2,8 +2,8 @@
  * Privacy Policy page — required for any public-facing site (see CLAUDE.md rule 12).
  *
  * Discloses data practices honestly: most tools are fully client-side and send
- * nothing to the server; the Short URL Expander is the one exception and is
- * called out explicitly.
+ * nothing to the server; the Short URL Expander and the footer visitor counter are
+ * the exceptions and are called out explicitly.
  *
  * `LAST_UPDATED` is a string constant rather than a computed date so that the
  * "last updated" date only changes when the policy is intentionally revised —
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${baseUrl}/privacy` },
 };
 
-const LAST_UPDATED = "May 14, 2026";
+const LAST_UPDATED = "October 21, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
           <p>
             Dev Toolkit (mopplications.com) is a collection of browser-based developer utilities.
             We are committed to collecting as little data as possible. Most tools run entirely in
-            your browser — no data is sent to our servers.
+            your browser — your input is not sent to our servers.
           </p>
         </Section>
 
@@ -64,6 +64,25 @@ export default function PrivacyPage() {
             <strong>Short URL Expander:</strong> URLs you submit are sent to our server-side API
             solely to follow the redirect chain and return the final destination. They are not
             stored, logged, or used for any other purpose.
+          </p>
+        </Section>
+
+        <Section title="Visitor counter">
+          <p className="mb-3">
+            The footer shows how many visitors the site has had. It is a single number stored on
+            our server. We store nothing about individual visitors — no IP address, user agent, or
+            visit history.
+          </p>
+          <p className="mb-3">
+            To avoid counting the same browser twice, your browser keeps a small flag
+            (<code>dt-visit-counted</code>) in its local storage after your first visit. It is not
+            a cookie, it is never sent to us, and you can clear it at any time — your browser would
+            then be counted again on its next visit.
+          </p>
+          <p>
+            To limit abuse, our server briefly remembers your IP address in memory — for at most
+            one minute and never written to disk — to cap how often the counter can be incremented
+            from one address.
           </p>
         </Section>
 
