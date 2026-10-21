@@ -290,6 +290,14 @@ Test files: `tests/visits/visit-counter.test.ts`, `tests/visits/visit-rate-limit
 - Storage failure returns a generic 500 that does not leak file paths
 - Component: first visit POSTs once and sets `dt-visit-counted`; return visit only GETs; blocked localStorage never POSTs; React Strict Mode counts once; failures render nothing and clear the flag so the visit is retried; non-numeric counts are ignored; numbers are formatted with thousands separators
 
+### CI deploy scripts and Jenkinsfile
+
+Test file: `tests/ci/ci-scripts.test.ts` (runs the scripts under `bash` with stand-in `docker`, `df`, `uname` and `sleep` commands)
+
+- `ci/remote-precheck.sh`: passes on a healthy arm64 host; notes whether the data volume exists or will be created; fails when the docker daemon is unreachable, on a non-arm64 host, or with under 1 GiB free; requires the volume name
+- `ci/verify-deploy.sh`: passes for a running container with the volume mounted, writable and answering `/api/visits`; fails (and prints container logs) when the container is not running, no volume / a different volume / a bind mount is at `/app/data`, the directory is not writable by the app user, or the app does not answer; requires its arguments
+- Jenkinsfile: always mounts the data volume itself, keeps `REMOTE_RUN_ARGS` for extras and rejects a second `/app/data` mount, verifies before pruning remote images, prechecks the host (only when deploying) before building, bounds the pipeline and hang-prone stages with timeouts, and contains no hostnames, IPs or credentials
+
 ## Recommended post-change checklist
 
 Run these after major changes (middleware/CSP, dependency bumps, UI refactors):

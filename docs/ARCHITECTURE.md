@@ -109,7 +109,8 @@ Dark/light theme persistence        Middleware: CSP nonce, security headers
 ├── proxy.ts                 Next.js 16 middleware — CSP nonce generation + security response headers
 ├── next.config.ts                standalone output, poweredByHeader: false, esmExternals
 ├── Dockerfile                    Multi-stage build (deps → builder → runner, non-root USER, port 3050)
-└── Jenkinsfile                   CI/CD pipeline (build → SSH deploy to Raspberry Pi, no registry)
+├── Jenkinsfile                   CI/CD pipeline (precheck → build → SSH deploy to Raspberry Pi → verify, no registry)
+└── ci/                           Scripts the pipeline pipes to the deploy host (remote-precheck.sh, verify-deploy.sh)
 ```
 
 ---
