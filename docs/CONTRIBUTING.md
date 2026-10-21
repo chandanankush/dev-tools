@@ -131,6 +131,18 @@ All three must be clean before opening a PR.
 
 ---
 
+## This is a public repository
+
+Everything you push or post here — code, docs, commit messages, PR and issue text, screenshots, CI logs — is world-readable and permanent, including on forks. So:
+
+- Never include secrets (even test or expired ones), internal hostnames/IPs, credential IDs, employer-confidential or personal data, or local paths like `/Users/<name>/…`.
+- Use placeholders: `example.com`, `<deploy-host>`, `YOUR_TOKEN`.
+- Check `git config user.email` before committing — author emails stay in history. A personal or `@users.noreply.github.com` address is fine.
+- Don't open a public issue or PR describing an unpatched vulnerability. Use [private vulnerability reporting](../SECURITY.md) instead.
+- Reviewers read the whole diff — tests, `package.json`, the lockfile and `.github/` included — before approving a CI run on a first-time contributor's PR.
+
+---
+
 ## Pull request checklist
 
 - [ ] `pnpm test` passes (all tests green)
@@ -140,6 +152,7 @@ All three must be clean before opening a PR.
 - [ ] `README.md`, `testcase.md`, and `docs/ARCHITECTURE.md` updated
 - [ ] No `eval`, `new Function`, or CSP-breaking patterns introduced
 - [ ] No unnecessary dependencies added
+- [ ] No secrets, internal hosts/IPs, credential IDs, personal data or local paths in the diff or PR text (this repo is public)
 
 CI (`.github/workflows/ci.yml`) enforces type-check, lint, test, and build on every push/PR to `main` — a red check blocks merge.
 
@@ -161,7 +174,7 @@ Sync `development` with `main` at the start of a session:
 git checkout development && git pull origin main
 ```
 
-Day-to-day work happens on `development` (or a feature branch cut from it, merged back before the PR). When a coherent, shippable goal is complete, open a PR from `development` → `main`. Squash-merge preferred to keep history clean. Never raise a PR to `main` with failing tests or a broken build.
+Day-to-day work happens on `development` (or a feature branch cut from it, merged back before the PR). When a coherent, shippable goal is complete, open a PR from `development` → `main`. Squash-merge preferred for feature and fix PRs. For `development` → `main`, a merge commit keeps the two branches in sync (a squash makes `development` look diverged and the next PR list every commit again). Never raise a PR to `main` with failing tests or a broken build.
 
 ---
 
@@ -176,6 +189,8 @@ Open a GitHub issue with:
 2. Steps to reproduce
 3. Expected vs actual behaviour
 4. Browser + OS
+
+Issues are public — don't paste secrets, private URLs or personal data. For a security vulnerability, don't open an issue; follow [`SECURITY.md`](../SECURITY.md).
 
 ---
 

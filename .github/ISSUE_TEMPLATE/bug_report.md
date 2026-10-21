@@ -14,6 +14,8 @@ Describe the result and what you expected.
 
 Provide the smallest example and steps. Remove credentials, personal paths, real host identities, and private logs.
 
+Issues are public. For a security vulnerability, don't file an issue — see [SECURITY.md](../../SECURITY.md).
+
 ## Environment
 
 Project version or commit, OS, toolchain/browser, and relevant configuration (without secrets).

@@ -10,6 +10,32 @@ This file is read automatically on every session. All rules are mandatory.
 - **Stack:** Next.js 16 (App Router), React 19, TypeScript strict, Tailwind CSS v4, Vitest 4
 - **Middleware file:** `proxy.ts` (Next.js 16 convention — NOT `middleware.ts`)
 - **Package manager:** pnpm — always use `pnpm`, never `npm install` or `yarn`
+- **Visibility:** this is a **public** GitHub repository (`chandanankush/dev-tools`, MIT) — see the next section
+
+---
+
+## Public repository — mandatory
+
+Everything pushed here is world-readable, indexed, cached and cloneable: code, docs, commit history, branches, PRs, issues, review comments and CI logs. Deleting something later does not un-publish it. Write and review every change as if a stranger — or a scraper — will read it.
+
+**Never commit, paste, or mention (in code, docs, tests, fixtures, commit messages, PR/issue text, screenshots or logs):**
+- Secrets of any kind — API keys, tokens, passwords, private keys, webhook URLs — including "test" or already-expired ones
+- Private or internal infrastructure — hostnames, IPs, LAN names, VPN/wiki/ticket links, credential IDs, internal service ports
+- Employer-confidential or customer information, and personal data about anyone
+- Local machine details — absolute paths such as `/Users/<name>/…`, `.env*` files, `.claude/settings.local.json`, session transcripts, private tool or MCP output
+
+Use placeholders instead: `example.com`, `<deploy-host>`, `user@your-host`, `YOUR_TOKEN`.
+
+**Rules that follow from it:**
+- **Author identity is permanent.** Check `git config user.email` before committing; use a personal or `@users.noreply.github.com` address, never an employer address.
+- **Fork PRs run untrusted code in CI.** Keep workflows on `pull_request` (never `pull_request_target` that checks out PR code), keep secrets out of PR workflows, and keep `permissions` least-privilege.
+- **Unpatched vulnerabilities are not reported publicly.** No public issue/PR describing an unfixed hole — use GitHub private vulnerability reporting (see `SECURITY.md`). A fix for an already-published advisory is fine.
+- **Infra details belong in parameters, not literals.** New Jenkins/Docker/CI changes take hostnames, credential IDs and URLs as parameters or placeholders.
+- **Agent-written text is public too.** Commit messages, PR descriptions and issue comments written by an agent follow the same rules; never include session paths, tokens or internal URLs.
+
+**In code review** (human or agent), check the diff against this section in addition to the banned patterns below. For external contributions, read the whole diff — tests, `package.json`, the lockfile and `.github/` included — before approving a CI run or merging.
+
+If you find a secret or private detail already committed: stop, tell the owner, rotate the credential first, then rewrite history only with the owner's approval.
 
 ---
 
@@ -172,6 +198,7 @@ If you need to change any header value, explain why in the PR description. If a 
 - Never hardcode API keys, tokens, passwords, or credentials anywhere in source files.
 - Environment variables for secrets only. All secret env vars go in `.env.local` (gitignored).
 - If you see a string that looks like a secret in the diff, stop and flag it before committing.
+- This repo is public: the same applies to internal hostnames, IPs, credential IDs and local paths — see **Public repository**.
 
 ---
 
@@ -186,13 +213,16 @@ For vulnerable transitive dependencies, use pnpm overrides in `package.json` rat
 }
 ```
 
-When Dependabot opens a PR: check if it's a dev-only dependency (zero production risk) or a runtime dependency (must fix immediately).
+Scope an override to the installed major (`"undici@^7": "^7.29.1"`) — a bare `>=` can resolve to a newer major and break things. After overriding, confirm the lockfile resolves every package at or above its patched version.
 
-After every push, check for open alerts:
+When Dependabot opens a PR: check if it's a dev-only dependency (zero production risk) or a runtime dependency (must fix immediately). Dependabot PRs all edit `package.json` and `pnpm-lock.yaml`, so they conflict serially — batch compatible patch/minor bumps into one commit on `development` and let Dependabot close the superseded PRs.
+
+After every push, check for open alerts. **Always pass `--paginate`** — the API returns 30 per page, and an unpaginated query silently hides the rest:
 ```bash
-gh api repos/chandanankush/dev-tools/dependabot/alerts --jq '.[] | select(.state=="open") | {number, severity: .security_advisory.severity, package: .dependency.package.name}'
-gh api repos/chandanankush/dev-tools/code-scanning/alerts --jq '.[] | select(.state=="open") | {number, rule_id: .rule.id, severity: .rule.severity}'
+gh api repos/chandanankush/dev-tools/dependabot/alerts --paginate --jq '.[] | select(.state=="open") | {number, severity: .security_advisory.severity, package: .dependency.package.name, scope: .dependency.scope}'
+gh api repos/chandanankush/dev-tools/code-scanning/alerts --paginate --jq '.[] | select(.state=="open") | {number, rule_id: .rule.id, severity: .rule.severity}'
 ```
+Dependabot alerts track the default branch, so they close only after the fix merges to `main`.
 
 ---
 
@@ -290,6 +320,7 @@ If a library requires `'unsafe-inline'` to function, do not add it to the CSP. F
 | `<style>` tag without nonce | CSP violation / `unsafe-inline` needed | Pass `nonce={nonce}` prop to `<style>` |
 | Library requiring `unsafe-inline` to work | Forces CSP weakening | Find nonce-compatible version or replace |
 | Public site with no `/privacy` page | GDPR/legal exposure | Add `app/privacy/page.tsx` disclosing data practices |
+| Internal hostnames/IPs, credential IDs, employer addresses or local paths in code, docs, commits or PR text | Repo is public and history is permanent | Placeholders (`<deploy-host>`, `example.com`); see **Public repository** |
 
 ---
 
