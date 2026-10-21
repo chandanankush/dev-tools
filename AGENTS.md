@@ -264,7 +264,7 @@ The runner ships no package manager (see rule 4), so npm/pnpm/corepack transitiv
 
 Any publicly deployed web application that processes requests must have a `/privacy` page that discloses:
 - What data is collected (even if the answer is "nothing beyond CDN logs")
-- Whether any server-side processing occurs (e.g. the URL Expander sends URLs to the server)
+- Whether any server-side processing occurs (e.g. the URL Expander sends URLs to the server; the visitor counter stores an aggregate count)
 - Which third-party services handle data (Cloudflare, etc.)
 
 This site's privacy policy is at `app/privacy/page.tsx`. If new server-side data processing is added, update it in the same PR.
@@ -336,9 +336,9 @@ If a library requires `'unsafe-inline'` to function, do not add it to the CSP. F
 
 ## Architecture constraints
 
-- **No new server-side APIs** without explicit user request and SSRF review
-- **All tool logic runs client-side** — no new server persistence, sessions, or databases
-- **localStorage only** for persistence — no cookies, no IndexedDB unless asked
+- **No new server-side APIs** without explicit user request and SSRF review. Existing: `/api/expand-url` (SSRF-guarded fetch) and `/api/visits` (visitor counter — makes no outbound requests)
+- **All tool logic runs client-side** — no new server persistence, sessions, or databases. The one exception, added at the owner's request, is the footer visitor count: a single integer in a file on the `/app/data` volume (`lib/visit-counter.ts`); nothing per-visitor is stored
+- **localStorage only** for client persistence — no cookies, no IndexedDB unless asked
 - **Single tool registry** — all tools in `lib/tools.config.ts`, nowhere else
 - **Next.js 16 middleware** lives in `proxy.ts` — never create `middleware.ts`
 

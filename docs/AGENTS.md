@@ -30,7 +30,7 @@ Then self-review the diff against the **Banned patterns** table at the bottom of
 | **Stack** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Tiptap v3, Vitest 4 |
 | **Package manager** | pnpm |
 | **Node version** | 26 |
-| **Runtime target** | Browser-first; server only for `/api/expand-url` |
+| **Runtime target** | Browser-first; server only for `/api/expand-url` and `/api/visits` |
 
 ---
 
@@ -59,7 +59,7 @@ All tools are registered in a single file: `lib/tools.config.ts`.
 - → Full header table: [docs/ARCHITECTURE.md — Security model](ARCHITECTURE.md#security-model)
 
 ### Server-side API security
-- `/api/expand-url` is the **only server-side API**. Any new server-side API must apply the same SSRF protections:
+- `/api/expand-url` and `/api/visits` are the **only server-side APIs**. `/api/visits` (visitor counter) makes no outbound requests and stores only an aggregate count. Any new server-side API that fetches URLs must apply the same SSRF protections:
   - Protocol allowlist (`http:`/`https:` only).
   - `isPrivateHost()` blocking RFC-1918, loopback, link-local, and metadata address ranges.
   - Manual redirect following (`redirect: "manual"`) with `isPrivateHost` checked at **every hop** via `fetchWithValidatedRedirects`.
@@ -108,7 +108,7 @@ Quick agent checklist:
 
 - Runner: **Vitest** + `@testing-library/react` + `jsdom`.
 - Setup file: `tests/setup.ts` — mocks `next/image`, runs `cleanup` after each test.
-- 25 test files total (280 tests): 15 in `tests/tools/` (component-level, 39 for basic-calculator alone, 46 for editor-pad), 8 in `tests/brainstorm/` (canvas engine unit tests — geometry, scene, history, viewport, serialize, storage, render, gestures), and 2 in `tests/seo/` (sitemap/metadata).
+- 28 test files total (319 tests): 15 in `tests/tools/` (component-level, 39 for basic-calculator alone, 46 for editor-pad), 8 in `tests/brainstorm/` (canvas engine unit tests — geometry, scene, history, viewport, serialize, storage, render, gestures), 2 in `tests/seo/` (sitemap/metadata), and 3 in `tests/visits/` (visitor counter: storage, API route, footer component).
 - Heavy DOM packages (ProseMirror/Tiptap, canvas, WebGL) **must be mocked** — jsdom does not support them.
 - Mocks go at the top of the test file using `vi.mock(...)` before any imports of the component.
 - Use `vi.stubGlobal("localStorage", ...)` for localStorage — do not rely on jsdom's built-in implementation for persistence tests.
@@ -291,7 +291,7 @@ The runner stage runs `apk upgrade --no-cache` to pick up Alpine CVE patches and
 
 | Action | Reason |
 |---|---|
-| Add server-side persistence (DB, sessions) | Project is intentionally stateless beyond localStorage |
+| Add server-side persistence (DB, sessions) | Project is intentionally stateless beyond localStorage; the visitor count file (`/app/data`) is the one owner-approved exception |
 | Introduce `eval` or `new Function` | Breaks CSP in production |
 | Remove or weaken CSP headers in `proxy.ts` | Security regression |
 | Use `redirect: "follow"` with user-supplied URLs server-side | SSRF vulnerability |

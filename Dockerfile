@@ -50,7 +50,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/.next/standalone ./
 
-RUN chown -R appuser:appgroup /app
+# Visitor-counter storage. Created here (owned by appuser) so a named volume mounted at
+# /app/data inherits the right ownership; without that mount the count resets per deploy.
+RUN mkdir -p /app/data && chown -R appuser:appgroup /app
 
 USER appuser
 

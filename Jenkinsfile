@@ -38,14 +38,16 @@ pipeline {
     )
     string(
       name: 'REMOTE_RUN_ARGS',
-      defaultValue: '',
+      defaultValue: '-v dev-tools-data:/app/data',
       description: '''Additional docker run flags appended verbatim after the port and env flags.
+The default mounts the volume that stores the visitor count; keep it in any value you set
+or the count resets on every deploy.
 Examples (pick what you need, space-separated):
   Resource limits:   --memory 512m --cpus 1.0
   Log rotation:      --log-opt max-size=10m --log-opt max-file=3
   Custom network:    --network my-net
-  Volume mount:      -v /host/data:/app/data:ro
-  Multiple together: --memory 512m --log-opt max-size=10m --network my-net'''
+  Read-only mount:   -v /host/config:/app/config:ro
+  Multiple together: -v dev-tools-data:/app/data --memory 512m --log-opt max-size=10m --network my-net'''
     )
     string(
       name: 'SSH_CREDENTIALS_ID',

@@ -13,7 +13,7 @@ Dockerfile (multi-stage)
 ├── base      node:26-alpine + corepack (installed via npm — build-time only, required for Node 25+)
 ├── deps      pnpm install --frozen-lockfile
 ├── builder   next build  (standalone output)
-└── runner    fresh node:26-alpine → apk upgrade → npm/npx/corepack removed → non-root USER appuser → node server.js (port 3050)
+└── runner    fresh node:26-alpine → apk upgrade → npm/npx/corepack removed → /app/data (appuser) → non-root USER appuser → node server.js (port 3050)
 ```
 
 `next.config.ts` sets `output: "standalone"` — the runner image ships only what is needed (`server.js`, `.next/standalone`, `.next/static`, `public/`). No `node_modules` in the final image.
@@ -50,7 +50,7 @@ File: `Jenkinsfile`
 | `REMOTE_APP_NAME` | string | `dev-tools` | Docker container name on remote |
 | `REMOTE_PORT_MAPPING` | string | `3050:3050` | `<host>:<container>` port mapping |
 | `REMOTE_ENV_VARS` | string | `-e NEXT_PUBLIC_SITE_URL=...` | Extra env flags for `docker run` |
-| `REMOTE_RUN_ARGS` | string | — | Additional `docker run` flags |
+| `REMOTE_RUN_ARGS` | string | `-v dev-tools-data:/app/data` | Additional `docker run` flags. The default mounts the visitor-count volume — keep it in any value you set |
 | `SSH_CREDENTIALS_ID` | string | `pi-ssh-key` | Jenkins credential ID (SSH Username with private key) |
 
 > `IMAGE_NAME` is a fixed pipeline environment variable (`dev-tools`) — not a parameter. There is no registry push step; the image is streamed directly to the remote host over SSH. Image tags use the Jenkins `BUILD_NUMBER` (e.g. `dev-tools:42`), not `:latest`.
@@ -121,11 +121,26 @@ docker run -d \
   --name dev-tools \
   --restart unless-stopped \
   -p 3050:3050 \
+  -v dev-tools-data:/app/data \
   -e NEXT_PUBLIC_SITE_URL=https://mopplications.com \
   dev-tools:latest
 ```
 
 App is available at `http://<host>:3050`.
+
+### Persistent data (visitor count)
+
+The footer visitor count is stored in `/app/data/visits.json`. The container filesystem is replaced on every deploy, so `/app/data` must be a volume — `-v dev-tools-data:/app/data`, which is the `REMOTE_RUN_ARGS` default in the Jenkinsfile. Without it the count restarts at 0 on each deploy.
+
+```bash
+# back up the count
+docker run --rm -v dev-tools-data:/data -v "$PWD":/backup alpine cp /data/visits.json /backup/visits.json
+
+# reset the count to 0 (container must be stopped and removed first)
+docker volume rm dev-tools-data
+```
+
+The image creates `/app/data` owned by `appuser`, so a new named volume is writable without extra steps. A bind mount (`-v /host/path:/app/data`) must be writable by the container user (uid 100).
 
 ---
 
