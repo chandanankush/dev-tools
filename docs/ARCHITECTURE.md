@@ -265,7 +265,7 @@ Browser (return visit) → flag present
 
 - **Storage:** `lib/visit-counter.ts` keeps one integer in `<VISITS_DATA_DIR>/visits.json` (`/app/data` in Docker). Reads come from memory; increments are serialised and written atomically (temp file + rename). A damaged file is kept as `visits.json.corrupt` and counting restarts from 0. Single-process only — more than one instance would need a real database.
 - **Deployment:** `/app/data` must be a mounted volume (`-v dev-tools-data:/app/data`, the Jenkins `REMOTE_RUN_ARGS` default) or the count resets whenever the container is replaced.
-- **Abuse guard (basic, not authentication):** POST must be same-origin (`Sec-Fetch-Site` / `Origin`) and is limited to 5 per IP per minute. The IP lives in memory for the window and is never written. A determined caller can still fake requests.
+- **Abuse guard (basic, not authentication):** POST must be same-origin (`Sec-Fetch-Site` / `Origin`), limited to 5 per IP per minute, and capped at 60 per minute overall. The client IP is `cf-connecting-ip`, else the rightmost `X-Forwarded-For` hop (the leftmost is client-supplied). Headers can be forged by anyone who reaches the origin directly, so the overall cap is the real backstop: the count can never rise faster than 60 a minute. Keep the origin behind Cloudflare / the reverse proxy rather than exposing the port. IPs live in memory for the window and are never written.
 - **Privacy:** no IP, user agent or per-visit record is stored; disclosed on `/privacy`. If localStorage is blocked the client only reads, so the count is never inflated.
 - **No outbound requests**, so no SSRF surface. The CSP is unchanged (`connect-src 'self'`).
 

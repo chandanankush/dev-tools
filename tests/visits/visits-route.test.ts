@@ -121,12 +121,50 @@ describe("POST /api/visits", () => {
     expect((await POST(post({ "cf-connecting-ip": ip }))).status).toBe(200);
   });
 
-  it("uses the first x-forwarded-for address when cf-connecting-ip is absent", async () => {
+  it("keys on the rightmost x-forwarded-for hop, which a client cannot forge", async () => {
     const { POST } = await loadRoute();
-    const ip = freshIp();
+    const proxySeen = freshIp();
 
-    for (let i = 0; i < 5; i++) await POST(post({ "x-forwarded-for": `${ip}, 10.0.0.1` }));
-    expect((await POST(post({ "x-forwarded-for": `${ip}, 10.9.9.9` }))).status).toBe(429);
+    // the client prepends a different fake address every time; the proxy-appended hop is constant
+    for (let i = 0; i < 5; i++) {
+      expect((await POST(post({ "x-forwarded-for": `198.51.100.${i}, ${proxySeen}` }))).status).toBe(200);
+    }
+    expect((await POST(post({ "x-forwarded-for": `198.51.100.99, ${proxySeen}` }))).status).toBe(429);
+  });
+
+  it("caps increments overall, so forged addresses cannot inflate the count", async () => {
+    const { POST, GET } = await loadRoute();
+
+    for (let i = 0; i < 60; i++) {
+      expect((await POST(post({ "cf-connecting-ip": freshIp() }))).status).toBe(200);
+    }
+    const blocked = await POST(post({ "cf-connecting-ip": freshIp() }));
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBe("60");
+    expect(await (await GET()).json()).toEqual({ count: 60 });
+  });
+
+  it("resumes counting once the overall window has passed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    const { POST } = await loadRoute();
+
+    for (let i = 0; i < 60; i++) await POST(post({ "cf-connecting-ip": freshIp() }));
+    expect((await POST(post({ "cf-connecting-ip": freshIp() }))).status).toBe(429);
+
+    vi.setSystemTime(new Date("2026-01-01T00:01:01Z"));
+    expect((await POST(post({ "cf-connecting-ip": freshIp() }))).status).toBe(200);
+  });
+
+  it("does not spend overall budget on rejected requests", async () => {
+    const { POST, GET } = await loadRoute();
+
+    for (let i = 0; i < 100; i++) await POST(post({ "sec-fetch-site": "cross-site", "cf-connecting-ip": freshIp() }));
+    for (let i = 0; i < 5; i++) {
+      expect((await POST(post({ "cf-connecting-ip": freshIp() }))).status).toBe(200);
+    }
+    expect(await (await GET()).json()).toEqual({ count: 5 });
   });
 
   it("returns a generic 500 and does not leak paths when storage fails", async () => {

@@ -25,7 +25,7 @@ Implementation and development notes preserved from the earlier README. For use,
 
 Nonce-based Content Security Policy enforced on every request via `proxy.ts` (Next.js 16 middleware). Strict in production (`script-src 'nonce-...' 'strict-dynamic'`), relaxed for HMR in development. Full HSTS, COOP, COEP, CORP headers included.
 
-The visitor counter API (`/api/visits`) makes no outbound requests, stores only an aggregate count, requires same-origin POSTs and rate-limits them per IP (in memory). The Short URL Expander API (`/api/expand-url`) blocks SSRF via protocol allowlist, private host detection (RFC-1918, loopback, link-local), and per-hop redirect validation.
+The visitor counter API (`/api/visits`) makes no outbound requests, stores only an aggregate count, requires same-origin POSTs and rate-limits them per IP and overall (in memory; the overall cap holds even if client IP headers are forged). The Short URL Expander API (`/api/expand-url`) blocks SSRF via protocol allowlist, private host detection (RFC-1918, loopback, link-local), and per-hop redirect validation.
 
 Password generation uses rejection-sampling (`unbiasedRandom`) to eliminate modulo bias in `crypto.getRandomValues`.
 
