@@ -165,6 +165,10 @@ Day-to-day work happens on `development` (or a feature branch cut from it, merge
 
 ---
 
+## Questions and first contributions
+
+Use [Discussions](https://github.com/chandanankush/dev-tools/discussions) for setup questions and use cases. Browse [good first issues](https://github.com/chandanankush/dev-tools/labels/good%20first%20issue) and [help wanted](https://github.com/chandanankush/dev-tools/labels/help%20wanted); comment before starting. Browser testing should use invented input and local instances.
+
 ## Reporting bugs
 
 Open a GitHub issue with:
