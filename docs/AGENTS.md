@@ -108,7 +108,7 @@ Quick agent checklist:
 
 - Runner: **Vitest** + `@testing-library/react` + `jsdom`.
 - Setup file: `tests/setup.ts` — mocks `next/image`, runs `cleanup` after each test.
-- 28 test files total (322 tests): 15 in `tests/tools/` (component-level, 39 for basic-calculator alone, 46 for editor-pad), 8 in `tests/brainstorm/` (canvas engine unit tests — geometry, scene, history, viewport, serialize, storage, render, gestures), 2 in `tests/seo/` (sitemap/metadata), and 3 in `tests/visits/` (visitor counter: storage, API route, footer component).
+- 29 test files total (328 tests): 15 in `tests/tools/` (component-level, 39 for basic-calculator alone, 46 for editor-pad), 8 in `tests/brainstorm/` (canvas engine unit tests — geometry, scene, history, viewport, serialize, storage, render, gestures), 2 in `tests/seo/` (sitemap/metadata), and 4 in `tests/visits/` (visitor counter: storage, rate limiter, API route, footer component).
 - Heavy DOM packages (ProseMirror/Tiptap, canvas, WebGL) **must be mocked** — jsdom does not support them.
 - Mocks go at the top of the test file using `vi.mock(...)` before any imports of the component.
 - Use `vi.stubGlobal("localStorage", ...)` for localStorage — do not rely on jsdom's built-in implementation for persistence tests.
