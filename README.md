@@ -8,7 +8,7 @@ Everyday developer utilities in one searchable browser workspace: format JSON, c
 
 Made by **[Chandan Singh](https://www.linkedin.com/in/chandan-singh-mobileengineer/)** · [GitHub](https://github.com/chandanankush)
 
-![Dev Toolkit running locally with an empty search and example tool cards](docs/assets/toolkit-demo.png)
+![Dev Toolkit running locally with an empty search and example tool cards](docs/assets/toolkit-demo.jpg)
 
 *Actual interface from an isolated local production-mode server. The [short URL-encoding walkthrough](docs/assets/toolkit-demo.gif) uses invented example text and two captured states, with condensed timing.*
 
@@ -43,7 +43,7 @@ Open <http://localhost:3000>. For a production build, run `pnpm build` and then 
 - Saved notes, calculator history, theme, and drawing preferences use browser storage. Storage limits apply; clearing site data can remove saved work. Export notes you need to keep.
 - No universal offline guarantee: initial page loading, external resources, and the URL expander may need network access. Clipboard and download behavior depend on browser permissions and capabilities.
 - Password/JWT utilities are tools, not a credential vault or token-security audit. Use invented values in public examples and reports.
-- This repository's source and the hosted deployment may differ. A release or passing test run does not establish compatibility with every device.
+- The hosted site may lag behind `main`. A release or passing test run does not establish compatibility with every device.
 
 ## Support and contribution
 
